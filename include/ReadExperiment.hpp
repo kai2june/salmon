@@ -150,7 +150,7 @@ public:
       if (salmonIndex_->isSparse()){
         loadTranscriptsFromPuff(salmonIndex_->puffSparseIndex(), sopt);
       } else {
-        loadTranscriptsFromPuff(salmonIndex_->puffIndex(), sopt);
+        loadTranscriptsFromPuff(salmonIndex_->puffIndex(), sopt); /// @brief after this line, we have transcript.mass valued
       }
     }
 
@@ -277,6 +277,7 @@ public:
 
     log->info("Index contained {:n} targets", numRecords);
     transcripts_.reserve(numRecords);
+
     std::vector<uint32_t> lengths;
     lengths.reserve(numRecords);
     size_t numIndexedRefs = idx_->getIndexedRefCount();
@@ -289,7 +290,6 @@ public:
       uint32_t id = i;
       bool isShort = refLengths[i] <= k;
       bool isDecoy = idx_->isDecoy(i - numShort);
-
       if (isDecoy and !sopt.validateMappings) {
         log->warn("The index contains decoy targets, but these should not be used in the "
                   "absence of selective-alignment (--validateMappings, --mimicBT2 or --mimicStrictBT2). "
@@ -300,7 +300,7 @@ public:
       const char* name = refNames[i].c_str();
       uint32_t len = refLengths[i];
       // copy over the length, then we're done.
-      transcripts_.emplace_back(id, name, len, alpha);
+      transcripts_.emplace_back(id, name, len, alpha); /// @brief start from here we get the mass.
       auto& txp = transcripts_.back();
       txp.setCompleteLength(completeRefLengths[i]);
 

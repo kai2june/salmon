@@ -38,7 +38,7 @@ public:
       alnGroup->alignments().clear();
       // alignmentGroupQueue.push(alnGroup);
       // alnGroup = nullptr;
-      ++ng;
+      ++ng; /// @brief numgroup
     }
 
     alignmentGroupQueue.enqueue_bulk(

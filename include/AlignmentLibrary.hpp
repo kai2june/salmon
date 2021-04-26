@@ -89,6 +89,7 @@ public:
     // The alignment file existed, so create the alignment queue
     size_t numParseThreads = salmonOpts.numParseThreads;
     std::cerr << "parseThreads = " << numParseThreads << "\n";
+    /// @brief 初始化等等要parsing的BAMQueue
     bq = std::unique_ptr<BAMQueue<FragT>>(
         new BAMQueue<FragT>(alnFiles, libFmt_, numParseThreads,
                             salmonOpts.mappingCacheMemoryLimit));
@@ -152,6 +153,7 @@ public:
     double alpha = 0.005;
     // we know how many we will have, so reserve the space for 
     // them.
+    /// @brief 根據bam header, 給transcript編號, 以及初值alpha
     transcripts_.reserve(header->nref);
     for (decltype(header->nref) i = 0; i < header->nref; ++i) {
       transcripts_.emplace_back(i, header->ref[i].name, header->ref[i].len,
@@ -162,7 +164,9 @@ public:
 
     fmt::print(stderr, "Populating targets from aln = {}, fasta = {} . . .",
                alnFiles.front(), transcriptFile_);
-    fp.populateTargets(transcripts_, salmonOpts);
+    /// @brief 這一行以上已經處理完bam header了, 
+    /// @brief populateTargets在parse bam record, 並檢查有沒有Refname不存在於bam header
+    fp.populateTargets(transcripts_, salmonOpts); 
     /*
 for (auto& txp : transcripts_) {
     // Length classes taken from
@@ -196,18 +200,20 @@ for (auto& txp : transcripts_) {
     fmt::print(stderr, "done\n");
 
     // Create the cluster forest for this set of transcripts
+    /// @brief 所有transcript各自為一個disjoint_set, 以及各自開啟一個TranscriptCluster
     clusters_.reset(new ClusterForest(transcripts_.size(), transcripts_));
 
     // Initialize the fragment length distribution
-    size_t maxFragLen = salmonOpts.fragLenDistMax;
-    double meanFragLen = salmonOpts.fragLenDistPriorMean;
-    double fragLenStd = salmonOpts.fragLenDistPriorSD;
+    size_t maxFragLen = salmonOpts.fragLenDistMax; /// 1000
+    double meanFragLen = salmonOpts.fragLenDistPriorMean; /// 250
+    double fragLenStd = salmonOpts.fragLenDistPriorSD; /// 25
     size_t fragLenKernelN = 4;
     double fragLenKernelP = 0.5;
     flDist_.reset(new FragmentLengthDistribution(1.0, maxFragLen, meanFragLen,
                                                  fragLenStd, fragLenKernelN,
                                                  fragLenKernelP, 1));
 
+    /// @brief numErrorBins*82*82 matrix
     alnMod_.reset(new AlignmentModel(1.0, salmonOpts.numErrorBins));
     alnMod_->setLogger(salmonOpts.jointLog);
 
@@ -344,7 +350,7 @@ for (auto& txp : transcripts_) {
         // We compute the factors in linear space (since we've de-logged the
         // pmf)
         auto correctionFactors = distribution_utils::correctionFactorsFromMass(
-            pmf, DistributionSpace::LINEAR);
+            pmf, DistributionSpace::LINEAR); /// @brief correctionFactors就是論文當中的{mu^li_d}
         // Since we'll continue treating effective lengths in log space,
         // populate them as such
         distribution_utils::computeSmoothedEffectiveLengths(
@@ -564,6 +570,7 @@ private:
       for (size_t i = 0; i < nbins; ++i) {
         cumStep += step;
         size_t ind = std::min(cumStep, n - 1);
+        /// @brief 切點, ind左邊的都較小, ind右邊的都較大, nbins個區間之間sorted, 各區間內unsorted
         std::nth_element(lengths.begin(), lengths.begin() + ind, lengths.end());
         // Find the proper quantile
         lengthQuantiles_.push_back(*(lengths.begin() + ind));
@@ -584,6 +591,7 @@ private:
     auto qb = lengthQuantiles_.begin();
     auto qe = lengthQuantiles_.end();
     auto maxQuant = std::distance(qb, qe) - 1;
+    /// @brief 填每一條transcript長度在nbins的哪個bin裡面
     for (auto& t : transcripts_) {
       auto ind = std::min(
           maxQuant, std::distance(qb, std::upper_bound(qb, qe, t.RefLength)));

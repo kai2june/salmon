@@ -12,7 +12,7 @@
 #include "SalmonStringUtils.hpp"
 #include "Transcript.hpp"
 
-FASTAParser::FASTAParser(const std::string& fname) : fname_(fname) {}
+FASTAParser::FASTAParser(const std::string& fname) : fname_(fname) {} /// txp files
 
 void FASTAParser::populateTargets(std::vector<Transcript>& refs,
                                   SalmonOpts& sopt) {
@@ -21,6 +21,7 @@ void FASTAParser::populateTargets(std::vector<Transcript>& refs,
   using std::string;
   using std::unordered_map;
 
+  /// @brief nameToID是從bam header截下來的
   unordered_map<string, size_t> nameToID;
   for (auto& ref : refs) {
     nameToID[ref.RefName] = ref.id;
@@ -33,9 +34,10 @@ void FASTAParser::populateTargets(std::vector<Transcript>& refs,
     sepStr += '|';
   }
 
-  std::vector<std::string> readFiles{fname_};
-  size_t maxReadGroup{1000}; // Number of files to read simultaneously
-  size_t concurrentFile{1};  // Number of reads in each "job"
+  std::vector<std::string> readFiles{fname_}; /// @brief txp files
+std::cerr << "fname_=" << fname_ << std::endl;
+  size_t maxReadGroup{1000}; // Number of reads in each "job"
+  size_t concurrentFile{1};  // Number of files to read simultaneously
 
   single_parser parser(readFiles, 1, 1, maxReadGroup);
   parser.start();
@@ -45,14 +47,17 @@ void FASTAParser::populateTargets(std::vector<Transcript>& refs,
   constexpr const uint64_t randseed{271828}; 
   std::default_random_engine eng(randseed);
   std::uniform_int_distribution<> dis(0, 3);
-  uint64_t numNucleotidesReplaced{0};
+  uint64_t numNucleotidesReplaced{0}; /// @brief 似乎是想replace 'N'這個鹼基
 
   // All header names we encounter in the fasta file
   std::unordered_set<std::string> fastaNames;
-
+  
+  ///@brief readGroup應該是一些sam record
   auto rg = parser.getReadGroup();
-  while (parser.refill(rg)) {
-    for (auto& read : rg) {
+/// @brief try_dequeue(), 如果還有東西可以拿就繼續dequeue
+while (parser.refill(rg)) {
+for (auto& read : rg) {
+      /// @brief read.name應是sam的refname欄位
       std::string& header = read.name;
       std::string name = header.substr(0, header.find_first_of(sepStr));
 
@@ -67,6 +72,8 @@ void FASTAParser::populateTargets(std::vector<Transcript>& refs,
       fastaNames.insert(name);
 
       auto it = nameToID.find(name);
+      /// @brief log寫的reference應該是sam read record的refname欄位,
+      /// @brief did not appear in the BAM指的應該是not appear in bam header
       if (it == nameToID.end()) {
         sopt.jointLog->warn("Transcript {} appears in the reference but did "
                             "not appear in the BAM",
@@ -99,8 +106,8 @@ void FASTAParser::populateTargets(std::vector<Transcript>& refs,
                                           sopt.reduceGCMemory);
         // seqCopy will only be freed when the transcript is destructed!
       }
-    }
-  }
+} /// @brief for read in rg
+} /// @brief while (parser.refill(rg)), 處理完目前拿到的reads alignment吧?
 
   parser.stop();
 

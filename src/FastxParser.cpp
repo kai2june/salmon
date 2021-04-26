@@ -19,7 +19,7 @@ KSEQ_INIT(gzFile, gzread)
 
 namespace fastx_parser {
 template <typename T>
-FastxParser<T>::FastxParser(std::vector<std::string> files,
+FastxParser<T>::FastxParser(std::vector<std::string> files, /// @brief txp files
                             uint32_t numConsumers, uint32_t numParsers,
                             uint32_t chunkSize)
     : FastxParser(files, {}, numConsumers, numParsers, chunkSize) {}
@@ -58,7 +58,8 @@ FastxParser<T>::FastxParser(std::vector<std::string> files,
   }
 
   // every parsing thread gets a consumer token for the seqContainerQueue
-  // and a producer token for the readQueue.
+  // and a producer token for the readQueue.'
+  /// @brief 一個token表示其中一個parsing thread負責處理queue之中其中一項
   for (size_t i = 0; i < numParsers_; ++i) {
     consumeContainers_.emplace_back(
         new moodycamel::ConsumerToken(seqContainerQueue_));

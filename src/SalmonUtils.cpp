@@ -336,7 +336,7 @@ void writeAbundancesFromCollapsed(const SalmonOpts& sopt, ExpLib& alnLib,
                            ? std::log(transcript.RefLength)
                            : transcript.getCachedLogEffectiveLength();
     double count = transcript.projectedCounts;
-    double npm = (transcript.projectedCounts / numMappedFrags);
+    double npm = (transcript.projectedCounts / numMappedFrags); /// 就是transcript.mass, i.e., abundance
     double effLength = std::exp(logLength);
     if (sopt.noLengthCorrection) {
       effLength = 100.0;
@@ -372,31 +372,31 @@ void writeAbundances(const SalmonOpts& sopt, ExpLib& alnLib,
 
   auto clusters = alnLib.clusterForest().getClusters();
   size_t clusterID = 0;
-  for (auto cptr : clusters) {
+for (auto cptr : clusters) {
 
     // double logClusterMass = cptr->logMass();
     // EDIT
     double logClusterMass = salmon::math::LOG_0;
     double logClusterCount =
-        std::log(upperBoundFactor * static_cast<double>(cptr->numHits()));
+        std::log(upperBoundFactor * static_cast<double>(cptr->numHits())); /// @brief cluster當中transcript個數
 
     bool requiresProjection{false};
 
     auto& members = cptr->members();
     size_t clusterSize{0};
-    for (auto transcriptID : members) {
+for (auto transcriptID : members) {
       Transcript& t = refs[transcriptID];
       t.uniqueCounts = t.uniqueCount();
       t.totalCounts = t.totalCount();
       logClusterMass = salmon::math::logAdd(logClusterMass, t.mass(false));
       ++clusterSize;
-    }
+}
 
     if (logClusterMass == LOG_0) {
       // std::cerr << "Warning: cluster " << clusterID << " has 0 mass!\n";
     }
 
-    for (auto transcriptID : members) {
+for (auto transcriptID : members) {
       Transcript& t = refs[transcriptID];
       double logTranscriptMass = t.mass(false);
       // Try bias
@@ -414,13 +414,13 @@ void writeAbundances(const SalmonOpts& sopt, ExpLib& alnLib,
             t.projectedCounts > static_cast<double>(t.totalCounts) or
             t.projectedCounts < static_cast<double>(t.uniqueCounts);
       }
-    }
+}
 
     if (clusterSize > 1 and requiresProjection) {
       cptr->projectToPolytope(refs);
     }
     ++clusterID;
-  }
+} /// @brief for cptr in clusters
 
   auto& transcripts_ = refs;
   double tfracDenom{0.0};
@@ -457,6 +457,7 @@ void writeAbundances(const SalmonOpts& sopt, ExpLib& alnLib,
   }
 }
 
+/// @brief 用unboundedCount不斷更新projectedCount, 直到收斂
 template <typename AlnLibT>
 void normalizeAlphas(const SalmonOpts& sopt, AlnLibT& alnLib) {
 
@@ -504,7 +505,7 @@ void normalizeAlphas(const SalmonOpts& sopt, AlnLibT& alnLib) {
         t.projectedCounts = 0;
       } else {
         double logClusterFraction = logTranscriptMass - logClusterMass;
-        t.projectedCounts = std::exp(logClusterFraction + logClusterCount);
+        t.projectedCounts = std::exp(logClusterFraction + logClusterCount); /// @brief projectedCounts其實就只是在cluster裡面比例*總clusterreads數
         requiresProjection |=
             t.projectedCounts > static_cast<double>(t.totalCounts) or
             t.projectedCounts < static_cast<double>(t.uniqueCounts);
@@ -515,7 +516,7 @@ void normalizeAlphas(const SalmonOpts& sopt, AlnLibT& alnLib) {
       cptr->projectToPolytope(refs);
     }
     ++clusterID;
-  }
+  } /// @brief for cptr in clusters
 
   auto& transcripts_ = refs;
   double nFracDenom{0.0};
@@ -2290,7 +2291,6 @@ bool readEquivCounts(boost::filesystem::path& eqFilePathString,
  * the IDs of the targets marked as auxiliary to the file aux_target_ids.json in the `aux_info` directory.
  **/
 void markAuxiliaryTargets(SalmonOpts& sopt, std::vector<Transcript>& transcripts) { 
-  
   namespace bfs = boost::filesystem;
   auto& log = sopt.jointLog;
   const std::string& auxTargetFile = sopt.auxTargetFile;
@@ -3135,7 +3135,7 @@ int contextSize = outsideContext + insideContext;
 
   sopt.jointLog->info("processed bias for 100.0% of the transcripts");
   return effLensOut;
-}
+} /// @brief updateEffectiveLengths
 
 void aggregateEstimatesToGeneLevel(TranscriptGeneMap& tgm,
                                    boost::filesystem::path& inputPath) {

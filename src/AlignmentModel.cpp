@@ -153,17 +153,17 @@ inline void AlignmentModel::setBasesFromCIGAROp_(enum cigar_op op,
   case BAM_CDEL:
     curReadBase = ALN_DASH;
     break;
-  case BAM_CREF_SKIP:
+  case BAM_CREF_SKIP: /// @brief intron或其他
     curReadBase = ALN_REF_SKIP;
     break;
-  case BAM_CSOFT_CLIP:
+  case BAM_CSOFT_CLIP:  /// @brief reads在5'端或3'端序列不符
     curRefBase = ALN_SOFT_CLIP;
     break;
-  case BAM_CHARD_CLIP:
+  case BAM_CHARD_CLIP: /// @brief reads在中間序列不符
     curRefBase = ALN_HARD_CLIP;
     curReadBase = ALN_HARD_CLIP;
     break;
-  case BAM_CPAD:
+  case BAM_CPAD: /// @brief 看似deletion, 但是因為別的reads在該鹼基非deletion, 因此稱為pad (見sam pdf)
     curRefBase = ALN_PAD;
     curReadBase = ALN_PAD;
     break;
@@ -263,7 +263,7 @@ AlignmentModel::AlnModelProb AlignmentModel::logLikelihood(
   uint32_t curStateIdx{0};
   double invLen = static_cast<double>(readBins_) / bam_seq_len(read);
 
-  for (uint32_t cigarIdx = 0; cigarIdx < cigarLen; ++cigarIdx) {
+for (uint32_t cigarIdx = 0; cigarIdx < cigarLen; ++cigarIdx) {
     uint32_t opLen = cigar[cigarIdx] >> BAM_CIGAR_SHIFT;
     enum cigar_op op =
         static_cast<enum cigar_op>(cigar[cigarIdx] & BAM_CIGAR_MASK);
@@ -272,7 +272,7 @@ AlignmentModel::AlnModelProb AlignmentModel::logLikelihood(
     advanceInRead = false;
     advanceInReference = false;
 
-    for (size_t i = 0; i < opLen; ++i) {
+for (size_t i = 0; i < opLen; ++i) {
       if (advanceInRead) {
         // Shouldn't happen!
         if (readIdx >= static_cast<decltype(readIdx)>(readLen)) {
@@ -317,7 +317,8 @@ AlignmentModel::AlnModelProb AlignmentModel::logLikelihood(
       setBasesFromCIGAROp_(
           op, curRefBase, curReadBase); //, readStream, matchStream, refStream);
 
-      curStateIdx = curRefBase * numStates + curReadBase;
+      /// @brief 根據setBasesFromCIGAROp_, 會發現80個state當中很多是不會走到的state
+      curStateIdx = curRefBase * numStates + curReadBase;  /// @brief 共( (4base+4)*9state+(4base+4) = 80種state); ref/read >=4表非ACGT, 可能是-,softclip,hardclip,padding
       double tp = transitionProbs[readPosBin](prevStateIdx, curStateIdx);
       logLike += tp;
       bgLogLike += transitionProbs[readPosBin](0, 0);
@@ -353,6 +354,8 @@ double AlignmentModel::logLikelihood(const ReadPair& hit, Transcript& ref) {
     return logLike;
   }
 
+/// @brief 
+/// @param transitionProbsLeft_ 表示紀錄左read的transition probability table (quoted AlignmentModel.hpp:103)
   if (!hit.isPaired()) {
     if (hit.isLeftOrphan()) {
       auto alnLogProb = logLikelihood(hit.read1, ref, transitionProbsLeft_);

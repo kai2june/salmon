@@ -15,15 +15,15 @@
 class ClusterForest {
 public:
   ClusterForest(size_t numTranscripts, std::vector<Transcript>& refs)
-      : rank_(std::vector<size_t>(numTranscripts, 0)),
+      : rank_(std::vector<size_t>(numTranscripts, 0)), 
         parent_(std::vector<size_t>(numTranscripts, 0)),
         disjointSets_(&rank_[0], &parent_[0]),
         clusters_(std::vector<TranscriptCluster>(numTranscripts)) {
     // Initially make a unique set for each transcript
     for (size_t tnum = 0; tnum < numTranscripts; ++tnum) {
-      disjointSets_.make_set(tnum);
-      clusters_[tnum].members_.push_front(tnum);
-      clusters_[tnum].addMass(refs[tnum].mass());
+      disjointSets_.make_set(tnum);  /// @brief 例如10個isoform就10個set
+      clusters_[tnum].members_.push_front(tnum); /// @brief cluster[0]=[0], cluster[1]=[1], ..., cluster[9]=9
+      clusters_[tnum].addMass(refs[tnum].mass()); /// @brief Transcirpt的logForgettingMass + logauxProbs
     }
   }
 
@@ -41,10 +41,12 @@ public:
     ++start;
 
     for (auto it = start; it != finish; ++it) {
-      firstCluster = disjointSets_.find_set(firstTranscriptID);
-      otherCluster = disjointSets_.find_set(it->transcriptID());
-      if (otherCluster != firstCluster) {
+      firstCluster = disjointSets_.find_set(firstTranscriptID); /// @brief firstCluster的值是該cluster的代表transcriptID
+      otherCluster = disjointSets_.find_set(it->transcriptID()); /// @brief otherCluster的值是該cluster的代表transcriptID
+      if (otherCluster != firstCluster) { /// @brief 若兩者處於不同cluster
+        /// @brief Link - union the two sets represented by vertex x and y
         disjointSets_.link(firstCluster, otherCluster);
+        /// @brief 以下在驗證有沒有成功union
         auto parentClust = disjointSets_.find_set(it->transcriptID());
         auto childClust =
             (parentClust == firstCluster) ? otherCluster : firstCluster;
@@ -124,9 +126,9 @@ public:
     auto clusterID = disjointSets_.find_set(memberTranscript);
     auto& cluster = clusters_[clusterID];
     if (updateCount) {
-      cluster.incrementCount(newCount);
+      cluster.incrementCount(newCount); /// @brief newCount通常是1, 表這條fragment分派給這個transcript cluster
     }
-    cluster.addMass(logNewMass);
+    cluster.addMass(logNewMass); /// @brief 這個fragment的logForgettingMass
   }
 
   std::vector<TranscriptCluster*> getClusters() {
@@ -149,7 +151,7 @@ public:
 private:
   std::vector<size_t> rank_;
   std::vector<size_t> parent_;
-  boost::disjoint_sets<size_t*, size_t*> disjointSets_;
+  boost::disjoint_sets<size_t*, size_t*> disjointSets_; /// @brief disjointSets_像是clusters_的標頭
   std::vector<TranscriptCluster> clusters_;
 #if defined __APPLE__
   spin_lock clusterMutex_;

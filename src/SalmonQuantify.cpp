@@ -175,7 +175,6 @@ void processMiniBatch(ReadExperimentT& readExp, ForgettingMassCalculator& fmCalc
                       std::default_random_engine& randEng, bool initialRound,
                       std::atomic<bool>& burnedIn, double& maxZeroFrac,
                       distribution_utils::LogCMFCache& logCMFCache) {
-
   using salmon::math::LOG_0;
   using salmon::math::LOG_1;
   using salmon::math::LOG_EPSILON;
@@ -193,7 +192,7 @@ void processMiniBatch(ReadExperimentT& readExp, ForgettingMassCalculator& fmCalc
   std::uniform_real_distribution<> uni(
       0.0, 1.0 + std::numeric_limits<double>::min());
   std::vector<uint64_t> libTypeCounts(LibraryFormat::maxLibTypeID() + 1);
-  std::vector<uint64_t> libTypeCountsPerFrag(LibraryFormat::maxLibTypeID() + 1);
+  std::vector<uint64_t> libTypeCountsPerFrag(LibraryFormat::maxLibTypeID() + 1); /// @brief console's hits per frag
   bool hasCompatibleMapping{false};
   uint64_t numCompatibleFragments{0};
 
@@ -288,28 +287,6 @@ void processMiniBatch(ReadExperimentT& readExp, ForgettingMassCalculator& fmCalc
       auto firstTranscriptID = alnGroup.alignments().front().transcriptID();
       std::unordered_set<size_t> observedTranscripts;
 
-      // New incompat. handling.
-      /**
-      // The equivalence class information for
-      // compatible fragments
-      std::vector<uint32_t> txpIDsCompat;
-      std::vector<double> auxProbsCompat;
-      std::vector<double> posProbsCompat;
-      double auxDenomCompat = salmon::math::LOG_0;
-
-      // The equivalence class information for
-      // all fragments (if there is no compatible fragment)
-      std::vector<uint32_t> txpIDsAll;
-      std::vector<double> auxProbsAll;
-      std::vector<double> posProbsAll;
-      double auxDenomAll = salmon::math::LOG_0;
-
-      std::vector<uint32_t>* txpIDsFinal = nullptr;
-      std::vector<uint32_t>* txpIDsFinal = nullptr;
-      std::vector<uint32_t>* txpIDsFinal = nullptr;
-      double auxDenomFinal = salmon::math::LOG_0;
-      **/
-
       std::vector<uint32_t> txpIDs;
       std::vector<double> auxProbs;
       double auxDenom = salmon::math::LOG_0;
@@ -319,7 +296,7 @@ void processMiniBatch(ReadExperimentT& readExp, ForgettingMassCalculator& fmCalc
 
       hasCompatibleMapping = false;
       useAuxParams = ((localNumAssignedFragments + numAssignedFragments) >=
-                      salmonOpts.numPreBurninFrags);
+                      salmonOpts.numPreBurninFrags); /// @brief >= 5000 as default
       // For each alignment of this read
       for (auto& aln : alnGroup.alignments()) {
         bool considerCondProb{burnedIn or useAuxParams};
@@ -519,10 +496,11 @@ void processMiniBatch(ReadExperimentT& readExp, ForgettingMassCalculator& fmCalc
           txpIDs.push_back(transcriptID);
           auxProbs.push_back(auxProb);
           auxDenom = salmon::math::logAdd(auxDenom, auxProb);
-        } else {
+        } /// if (std::abs(transcriptLogCount) != LOG_0)
+        else {
           aln.logProb = LOG_0;
         }
-      }
+} /// for (auto& aln : alnGroup.alignments())
 
       // If this fragment has a zero probability,
       // go to the next one
@@ -705,7 +683,7 @@ void processMiniBatch(ReadExperimentT& readExp, ForgettingMassCalculator& fmCalc
       } // end normalize
 
       // update the single target transcript
-      if (transcriptUnique) {
+      if (transcriptUnique) { /// @brief looked uniquely assigned
         if (updateCounts) {
           transcripts[firstTranscriptID].addUniqueCount(1);
         }
@@ -722,7 +700,7 @@ void processMiniBatch(ReadExperimentT& readExp, ForgettingMassCalculator& fmCalc
       for(size_t i=0; i < libTypeCounts.size(); ++i) {
         libTypeCounts[i] += (libTypeCountsPerFrag[i] > 0);
       }
-    } // end read group
+} // end read group
   }   // end timer
 
   if (zeroProbFrags > 0) {
@@ -2251,7 +2229,7 @@ void quantifyLibrary(ReadExperimentT& experiment,
     // reuse.
     std::vector<AlnGroupVec<AlnT>> groupVec;
     for (size_t i = 0; i < numQuantThreads; ++i) {
-      groupVec.emplace_back(maxReadGroup);
+      groupVec.emplace_back(maxReadGroup); /// @brief a thread assinged 5000 read group, 100000 alignmentgroup as 20*5000*(multialign)
     }
 
     bool writeToCache = !salmonOpts.disableMappingCache;
@@ -2387,6 +2365,7 @@ void quantifyLibrary(ReadExperimentT& experiment,
 
 int salmonQuantify(int argc, const char* argv[]) {
   using std::cerr;
+std::cerr << "========================WE ARE IN SALMONQUANTIFY()========================" << std::endl;
   using std::vector;
   using std::string;
   namespace bfs = boost::filesystem;

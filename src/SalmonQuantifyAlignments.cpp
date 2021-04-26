@@ -1,4 +1,3 @@
-
 extern "C" {
 #include "io_lib/os.h"
 #include "io_lib/scram.h"
@@ -295,8 +294,8 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
     // If we actually got some work
     if (miniBatch != nullptr) {
       expectedLibraryFormat = alnLib.format();
-      useAuxParams = (processedReads >= salmonOpts.numPreBurninFrags);
-      bool considerCondProb = (useAuxParams or burnedIn);
+      useAuxParams = (processedReads >= salmonOpts.numPreBurninFrags); /// 處理5000 reads之後
+      bool considerCondProb = (useAuxParams or burnedIn); /// 處理5000 reads or 5000000reads之後
       ++activeBatches;
       batchReads = 0;
       zeroProbFrags = 0;
@@ -328,13 +327,13 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
         // Iterate over each group of alignments (a group consists of all
         // alignments reported for a single read).  Distribute the read's mass
         // proportionally dependent on the current
-        for (auto& alnGroup : alignmentGroups) {
+for (auto& alnGroup : alignmentGroups) {
           pmfCache.increment_generation();
           cmfCache.increment_generation();
 
           // EQCLASS
           std::vector<uint32_t> txpIDs;
-          std::vector<double> auxProbs;
+          std::vector<double> auxProbs;  
           double auxDenom = salmon::math::LOG_0;
 
           // The alignments must be sorted by transcript id
@@ -377,7 +376,7 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
 
           //double maxLogAlnScore{LOG_0};
           int sidx{0};
-          for (auto& aln : alnGroup->alignments()) {
+for (auto& aln : alnGroup->alignments()) {
             auto transcriptID = aln->transcriptID();
             auto& transcript = refs[transcriptID];
             transcriptUnique =
@@ -407,29 +406,34 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
               }
             }
 
+            /// @brief considerCondProb表已處理fragments數>5000(AuxParams初始化完成) 或 burnedIn(已處理fragments數>500萬)(不再更新AuxParams)
             if (flen > 0.0 and aln->isPaired() and useFragLengthDist and
-                considerCondProb) {
+                considerCondProb) { 
               
               size_t fl = flen;
-              double lenProb = pmfCache.get_or_update(fl, fetchPMF);
+              double lenProb = pmfCache.get_or_update(fl, fetchPMF); /// @brief pmfCache也是log space只是名字取的不好
 
+              /// @brief burnedIn表aux model都更新完成, 參數值不會再變
               if (burnedIn) {
                 /* condition fragment length prob on txp length */
                 size_t rlen = static_cast<size_t>(refLength);
-                double refLengthCM = cmfCache.get_or_update(fl, fetchCMF);
+                double refLengthCM = cmfCache.get_or_update(fl, fetchCMF); /// @brief cmfCache也是log space只是名字取的不好
 
-                bool computeMass =
-                    fl < refLength and !salmon::math::isLog0(refLengthCM);
+                /// @brief 基本上都會computeMass, 因為read length通常短於txp length
+                bool computeMass = 
+                    fl < refLength and !salmon::math::isLog0(refLengthCM); 
+                /// @brief 例如uniform dist, 若transciript越短則logFragProb越高
                 logFragProb = (computeMass) ? (lenProb - refLengthCM)
-                                            : salmon::math::LOG_EPSILON;
+                                            : salmon::math::LOG_EPSILON; 
                 if (computeMass and refLengthCM < lenProb) {
                   // Threading is hard!  It's possible that an update to the PMF
                   // snuck in between when we asked to cache the CMF and when
                   // the "burnedIn" variable was last seen as false.
+                  /// @brief lenProb跟refLengthCM看出來都是log值
                   log->info("reference length = {}, CMF[refLen] = {}, fragLen "
                             "= {}, PMF[fragLen] = {}",
                             refLength, std::exp(refLengthCM), aln->fragLen(),
-                            std::exp(lenProb));
+                            std::exp(lenProb));  
                 }
               } else if (useAuxParams) {
                 logFragProb = lenProb;
@@ -473,7 +477,7 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
             // alignment-level term.
             double logRefLength{salmon::math::LOG_0};
             if (noLengthCorrection) {
-              logRefLength = 1.0;
+              logRefLength = 1.0; 
             } else if (salmonOpts.noEffectiveLengthCorrection or !burnedIn) {
               logRefLength = std::log(transcript.RefLength);
             } else {
@@ -485,7 +489,7 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
             bool isCompat = salmon::utils::isCompatible(
                 aln->libFormat(), expectedLibraryFormat, aln->pos(), aln->fwd(),
                 aln->mateStatus());
-            double logAlignCompatProb = isCompat ? LOG_1 : incompatPrior;
+            double logAlignCompatProb = isCompat ? LOG_1 : incompatPrior; /// @brief compatible aln分數恆為0, 若可允許notCompatible aln, 則提高一點這些notCompatible aln的分數(0~1)
             if (!isCompat and salmonOpts.ignoreIncompat) {
               aln->logProb = salmon::math::LOG_0;
               continue;
@@ -514,7 +518,7 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
               int32_t alnScore = aln->getAS();
               // NOTE: we work directly in log space here, so the log
               // prob is -scoreExp * (S-w) rather than exp^(-scoreExp * (S-w))
-              errLike = -salmonOpts.scoreExp * (bestAS - alnScore);
+              errLike = -salmonOpts.scoreExp * (bestAS - alnScore); /// @brief 與alignment group當中best score差距
             } else if (useAuxParams and salmonOpts.useErrorModel) {
               errLike = alnMod.logLikelihood(*aln, transcript);
               ++sidx;
@@ -523,6 +527,7 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
             // Allow for a non-uniform fragment start position distribution
             double startPosProb{-logRefLength};
             if (aln->isPaired() and !noLengthCorrection) {
+              /// @brief refLength與flen相同時, startPosProb機率最高
               startPosProb = (flen <= refLength)
                                  ? -std::log(refLength - flen + 1)
                                  : salmon::math::LOG_EPSILON;
@@ -539,7 +544,7 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
 
             // The auxProb does *not* account for the start position
             // probability!
-            double auxProb = logFragProb + errLike + logAlignCompatProb;
+            double auxProb = logFragProb + errLike + logAlignCompatProb; /// @brief Pr(l) + Pr(a) + Pr(o)
 
             // The overall mass of this transcript, which is used to
             // account for this transcript's relaive abundance
@@ -549,22 +554,41 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
                 startPosProb != LOG_0) {
               aln->logProb = transcriptLogCount + auxProb + startPosProb;
 
+
               sumOfAlignProbs = logAdd(sumOfAlignProbs, aln->logProb);
               if (updateCounts and observedTranscripts.find(transcriptID) ==
                                        observedTranscripts.end()) {
                 refs[transcriptID].addTotalCount(1);
-                observedTranscripts.insert(transcriptID);
+                observedTranscripts.insert(transcriptID); /// @brief 一條fragment可能map到一個transcript的多個地方, 避免被重複addTotalCount
               }
               // EQCLASS
               txpIDs.push_back(transcriptID);
               auxProbs.push_back(auxProb);
               auxDenom = salmon::math::logAdd(auxDenom, auxProb);
 
+auto myprint = [&](std::string str)
+{
+if (std::string(aln->getName()) == str) 
+{
+std::cerr << " aln->getName() " << aln->getName() << std::endl;
+std::cerr << "aln->transcriptID() " << aln->transcriptID() << std::endl;
+std::cerr << "transcriptLogCount " << transcriptLogCount << std::endl;
+std::cerr << "logFragProb " << logFragProb << std::endl;
+std::cerr << "errLike " << errLike << std::endl;
+std::cerr << "logAlignCompatProb " << logAlignCompatProb << std::endl;
+std::cerr << "auxProb " << auxProb << std::endl;
+std::cerr << "startPosProb " << startPosProb << std::endl;
+std::cerr << "aln->logProb " << aln->logProb << std::endl;
+std::cerr << "sumOfAlignProbs " << sumOfAlignProbs << std::endl;
+}
+};
+myprint("NB501708:266:H3CFVBGXH:1:11101:10252:12045"); // mt-Co2-201 only
+myprint("NB501708:266:H3CFVBGXH:1:11101:15920:16680"); // mt-Co2-201(id140973), Gm28661(id701)
+
             } else {
               aln->logProb = LOG_0;
             }
-          }
-
+} /// @brief aln in alignment_group
           // If we have a 0-probability fragment
           if (sumOfAlignProbs == LOG_0) {
             ++zeroProbFrags;
@@ -590,8 +614,9 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
                 txpIDs.push_back(rangeNumber);
               }
             }
-
-            TranscriptGroup tg(txpIDs);
+            /// @brief txpIDs: [txp1, txp2, auxProbs[txp1]*rangeCount, auxProbs[txp2]*rangeCount]
+            /// @brief auxProbs: [aux probability of txp1, aux probability of txp2]
+            TranscriptGroup tg(txpIDs); 
             eqBuilder.addGroup(std::move(tg), auxProbs);
           }
 
@@ -607,8 +632,11 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
 
             auto transcriptID = aln->transcriptID();
             auto& transcript = refs[transcriptID];
-
+            
+            /// 這邊看起來有點問題, 如果有一個transcript幾乎出現在所有fragment的alignment, 
+            /// 那他會無緣無故多拿超多forgettingMass, 可能是false positive成因
             double newMass = logForgettingMass + aln->logProb;
+std::cerr << "logForgettingMass: " << logForgettingMass << " aln->logProb: " << aln->logProb << std::endl;
             transcript.addMass(newMass);
 
             // ---- Collect seq-specific bias samples ------ //
@@ -627,7 +655,7 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
             };
 
             bool success = false;
-            if (needBiasSample and salmonOpts.numBiasSamples > 0) {
+            if (needBiasSample and salmonOpts.numBiasSamples > 0) { /// @brief numBiasSamples(1百萬): seq-specific foreground dist
               const char* txpStart = transcript.Sequence();
               const char* txpEnd = txpStart + transcript.RefLength;
               if (aln->isPaired()) {
@@ -891,8 +919,8 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
                   fragLengthDist.addVal(fragLength, logForgettingMass);
                 }
               }
-            }
-          }
+            } /// @brief if (!burnedIn and r < std::exp(aln->logProb))
+          } /// @brief 第二次 aln in alnGroup
 
           // update the single target transcript
           if (transcriptUnique) {
@@ -904,15 +932,15 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
           } else { // or the appropriate clusters
             // ughh . . . C++ still has some very rough edges
             clusterForest.template mergeClusters<FragT>(
-                alnGroup->alignments().begin(), alnGroup->alignments().end());
+                alnGroup->alignments().begin(), alnGroup->alignments().end()); /// @brief 一個fragment multimapped的transcript原本各自一個cluster, 現在併在一起
             clusterForest.updateCluster(
                 alnGroup->alignments().front()->transcriptID(), 1,
-                logForgettingMass, updateCounts);
+                logForgettingMass, updateCounts); /// @brief 這條fragment分給這個cluster
           }
 
           ++batchReads;
-        } // end read group
-      }   // end timer
+        } // end read group   /// @brief for alnGroup in alignment groups
+      }   // end timer      /// @brief alnGroup in alngroups的上一行
 
       double individualTotal = LOG_0;
       {
@@ -975,20 +1003,18 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
       if (processedReads >= numBurninFrags and !burnedIn) {
         // NOTE: only one thread should succeed here, and that
         // thread will set burnedIn to true
-        alnLib.updateTranscriptLengthsAtomic(burnedIn);
+        alnLib.updateTranscriptLengthsAtomic(burnedIn); /// @brief 更新每條transcript的effective length
         fragLengthDist.cacheCMF();
       }
-
       if (zeroProbFrags > 0) {
         maxZeroFrac =
             std::max(maxZeroFrac,
                      static_cast<double>(100.0 * zeroProbFrags) / batchReads);
       }
-    }
+} /// @brief if (miniBatch != nullptr)
 
     miniBatch = nullptr;
-  } // nothing left to process
-
+} // nothing left to process  /// @brief while !DoneParsing 與 !workQueue.empty()
   if (maxZeroFrac > 0.0) {
     log->info("Thread saw mini-batch with a maximum of {0:.2f}\% zero "
               "probability fragments",
@@ -1043,7 +1069,9 @@ bool quantifyLibrary(AlignmentLibraryT<FragT>& alnLib,
   // Give ourselves some space
   fmt::print(stderr, "\n\n\n\n");
 
+  /// @param numRequiredFragments default:5千萬
   while (numObservedFragments < numRequiredFragments and !terminate) {
+    /// @brief 這個while執行完第一次的時候這個initialRound會被設為false 
     if (!initialRound) {
 
       size_t numToCache = (useMassBanking)
@@ -1055,9 +1083,9 @@ bool quantifyLibrary(AlignmentLibraryT<FragT>& alnLib,
         std::swap(workQueuePtr, processedCachePtr);
         doReset = false;
         fmt::print(stderr, "\n\n");
-      } else if (numToCache <= maxCacheSize) {
+      } else if (numToCache <= maxCacheSize) { /// @brief 預設200萬
         processedCachePtr = &processedCache;
-        doReset = true;
+        doReset = true; /// @brief doReset=true看起來是cache還需要更新
         fmt::print(stderr, "\n");
       }
 
@@ -1087,8 +1115,9 @@ bool quantifyLibrary(AlignmentLibraryT<FragT>& alnLib,
     std::mutex cvmutex;
     std::vector<std::thread> workers;
     std::atomic<size_t> activeBatches{0};
+    /// @brief haveCache表parsing搞完了, 全部threads拿來quantification
     auto currentQuantThreads =
-        (haveCache) ? salmonOpts.numQuantThreads + salmonOpts.numParseThreads
+        (haveCache) ? salmonOpts.numQuantThreads + salmonOpts.numParseThreads 
                     : salmonOpts.numQuantThreads;
 
     uint64_t firstTimestepOfRound = fmCalc.getCurrentTimestep();
@@ -1112,22 +1141,30 @@ bool quantifyLibrary(AlignmentLibraryT<FragT>& alnLib,
           std::ref(totalProcessedReads));
     }
 
+    /// @brief 上面workers很多thread同時在執行
+    /// @param haveCache : 第二round while執行完成之後, 若決定使用cache, 就不再parsing
     if (!haveCache) {
       size_t numProc{0};
 
       BAMQueue<FragT>& bq = alnLib.getAlignmentGroupQueue();
+      /// @brief alignments可以放一狗票ag
       std::vector<AlignmentGroup<FragT*>*>* alignments =
           new std::vector<AlignmentGroup<FragT*>*>;
       alignments->reserve(miniBatchSize);
       AlignmentGroup<FragT*>* ag;
 
+      /// @param alignmentGroupsRemain 表示看consumerQueue還能不能新抓到東西
+      /// @param alignments->size() > 0 看原本push_back進去的都parse完了沒
       bool alignmentGroupsRemain = bq.getAlignmentGroup(ag);
-      while (alignmentGroupsRemain or alignments->size() > 0) {
+while (alignmentGroupsRemain or alignments->size() > 0) {
         if (alignmentGroupsRemain) {
           alignments->push_back(ag);
         }
         // If this minibatch has reached the size limit, or we have nothing
         // left to fill it up with
+        /// @brief alignments->size() >= 1000 表示滿了, 可以push上去MiniBatchQueue讓thread做事
+        /// @brief !alignmentGroupsRemain 表示sam看完了, 
+        /// @brief 或是parsing不夠快, 來不及填bq, 因此先push上去MiniBatchQueue做事, 新出來的在下一輪處理
         if (alignments->size() >= miniBatchSize or !alignmentGroupsRemain) {
           ++batchNum;
           double logForgettingMass = 0.0;
@@ -1137,12 +1174,13 @@ bool quantifyLibrary(AlignmentLibraryT<FragT>& alnLib,
           workQueuePtr->push(mbi);
           {
             std::unique_lock<std::mutex> l(cvmutex);
-            workAvailable.notify_one();
+            workAvailable.notify_one(); /// alignments填滿囉, 有事做, 被notify的thread趕快幹活!!
           }
           alignments = new std::vector<AlignmentGroup<FragT*>*>;
           alignments->reserve(miniBatchSize);
         }
 
+        /// @brief 這就是terminal印的每百萬processed印一次
         if ((numProc % 1000000 == 0) or !alignmentGroupsRemain) {
           fmt::print(stderr, "\r\r{}processed{} {} {}reads in current round{}",
                      ioutils::SET_GREEN, ioutils::SET_RED, numProc,
@@ -1153,10 +1191,11 @@ bool quantifyLibrary(AlignmentLibraryT<FragT>& alnLib,
 
         ++numProc;
         alignmentGroupsRemain = bq.getAlignmentGroup(ag);
-      }
+}
       fmt::print(stderr, "\n");
 
       // Free the alignments and the vector holding them
+      /// @brief 看起來是處理while loop的最後一個iteration
       if (processedCachePtr == nullptr) {
         for (auto& alnGroup : *alignments) {
           alnGroup->alignments().clear();
@@ -1218,7 +1257,7 @@ bool quantifyLibrary(AlignmentLibraryT<FragT>& alnLib,
     double globalMass{salmon::math::LOG_0};
     double globalFwdMass{salmon::math::LOG_0};
     auto& globalGCMass = alnLib.observedGC();
-    for (auto& gcp : observedBiasParams) {
+for (auto& gcp : observedBiasParams) {
       auto& gcm = gcp.observedGCMass;
       globalGCMass.combineCounts(gcm);
 
@@ -1246,7 +1285,7 @@ bool quantifyLibrary(AlignmentLibraryT<FragT>& alnLib,
       globalMass = salmon::math::logAdd(globalMass, gcp.massFwd);
       globalMass = salmon::math::logAdd(globalMass, gcp.massRC);
       globalFwdMass = salmon::math::logAdd(globalFwdMass, gcp.massFwd);
-    }
+} /// @brief for gcp in observedBiasParams
     globalGCMass.normalize();
 
     if (globalMass != salmon::math::LOG_0) {
@@ -1293,9 +1332,9 @@ bool quantifyLibrary(AlignmentLibraryT<FragT>& alnLib,
     // EQCLASS
     bool done = alnLib.equivalenceClassBuilder().finish();
     // skip the extra online rounds
-    terminate = true;
+    terminate = true; /// @brief 無論如何都true? 這個while看來只會執行一次
     // END EQCLASS
-  }
+} /// while (numObservedFragments < numRequiredFragments and !terminate)
 
   fmt::print(stderr, "\n\n\n\n");
 
@@ -1322,6 +1361,7 @@ bool quantifyLibrary(AlignmentLibraryT<FragT>& alnLib,
     MiniBatchInfo<AlignmentGroup<FragT*>>* mbi = nullptr;
     while (!processedCache.empty()) {
       while (processedCache.try_pop(mbi)) {
+        /// @brief 把processedCache之中的內容都倒給fragmentQueue和alignmentGroupQueue
         mbi->release(fragmentQueue, alignmentGroupQueue);
         delete mbi;
       }
@@ -1344,7 +1384,7 @@ bool processSample(AlignmentLibraryT<ReadT>& alnLib, size_t requiredObservations
   try {
     // if this is a single-end library, then the fld won't change
     if (!alnLib.isPairedEnd()) {
-      alnLib.fragmentLengthDistribution()->cacheCMF();
+      alnLib.fragmentLengthDistribution()->cacheCMF(); /// @brief 把各長度fragment_bin.mass轉成pdf再轉成cdf 
     }
     burnedIn = quantifyLibrary<ReadT>(alnLib, requiredObservations, sopt);
   } catch (const InsufficientAssignedFragments& iaf) {
@@ -1366,6 +1406,7 @@ bool processSample(AlignmentLibraryT<ReadT>& alnLib, size_t requiredObservations
     // set to its final value.
     CollapsedEMOptimizer optimizer;
     jointLog->info("starting optimizer");
+    /// @brief 算projectedCount
     salmon::utils::normalizeAlphas(sopt, alnLib);
     bool optSuccess = optimizer.optimize(alnLib, sopt, 0.01, 10000);
     // If the optimizer didn't work, then bail out here.
@@ -1421,12 +1462,13 @@ bool processSample(AlignmentLibraryT<ReadT>& alnLib, size_t requiredObservations
     // bfs::path libCountFilePath = outputDirectory / "lib_format_counts.json";
     // alnLib.summarizeLibraryTypeCounts(libCountFilePath);
 
+    /// @brief salmon的sampling alignments功能
     if (sopt.sampleOutput) {
       // In this case, we should "re-convert" transcript
       // masses to be counts in log space
       auto nr = alnLib.numMappedFragments();
       for (auto& t : alnLib.transcripts()) {
-        double m = t.mass(false) * nr;
+        double m = t.mass(false) * nr; /// mass就是相對於所有transcript的abundance
         if (m > 0.0) {
           t.setMass(std::log(m));
         }
@@ -1739,6 +1781,10 @@ transcript abundance from RNA-seq reads
     // BAM/SAM parsing, as this is the current bottleneck.  For the time
     // being, however, the number of quantification threads is the
     // total number of threads - 1.
+    /// @brief 意思是samtools如果支援multi-threaded parsing, 
+    /// @brief 則可以全部threads先一起做完parsing再一起做quantification
+    /// @param numThreads default:8
+    /// @param numParseThreads default:4
     uint32_t numParseThreads =
         std::min(uint32_t(6),
                  std::max(uint32_t(2), uint32_t(std::ceil(numThreads / 2.0))));

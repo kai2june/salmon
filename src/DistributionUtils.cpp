@@ -168,7 +168,7 @@ std::vector<double> evaluateLogCMF(FragmentLengthDistribution* fld) {
     double refLengthCM = cmfValue_(static_cast<size_t>(tlen), useFLD);
     bool computeMass = !salmon::math::isLog0(refLengthCM);
     double maxLenProb = cmfValue_(maxFragLen, useFLD);
-    return  (computeMass) ? (maxLenProb - refLengthCM) : salmon::math::LOG_EPSILON;
+    return  (computeMass) ? (maxLenProb - refLengthCM) : salmon::math::LOG_EPSILON;  /// @brief maxLenProb越長,logFragProb越高
   }
 
   inline double LogCMFCache::cmfValue_(size_t len, bool useFLD) const {

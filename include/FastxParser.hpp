@@ -72,11 +72,13 @@ struct ReadQual {
   ~ReadQual() {}
 };
 
+/// @brief fasta
 struct ReadPair {
   ReadSeq first;
   ReadSeq second;
 };
 
+/// @brief fastq
 struct ReadQualPair {
   ReadQual first;
   ReadQual second;

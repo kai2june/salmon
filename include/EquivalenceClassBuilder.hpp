@@ -73,7 +73,7 @@ struct SCTGValue {
   SparseBarcodeMapType barcodeGroup;
 };
 
-
+/// @brief 一個transcriptGroup表一個fragment multimapped的所有transcript
 struct TGValue {
   TGValue(const TGValue& o) {
     weights = o.weights;
@@ -164,7 +164,9 @@ public:
     active_ = false;
     size_t totalCount{0};
     auto lt = countMap_.lock_table();
+    /// @brief kv是一個pair<TranscriptGroup, TGValue>
     for (auto& kv : lt) {
+      /// @brief normalizeAux()讓kv[:].TGValue.weights加總為1.0
       kv.second.normalizeAux();
       totalCount += kv.second.count;
       countVec_.push_back(kv);
@@ -205,6 +207,7 @@ public:
   // been called on the EquivalenceClassBuilder.
   inline size_t getNumTranscriptsForClass(size_t eqIdx) const;
 
+  /// @brief 這個weights表示auxProbs (i.e., logFragProb + errLike + logAlignCompatProb)
   inline void addGroup(TranscriptGroup&& g, std::vector<double>& weights);
 
   inline void populateTargets(std::vector<std::vector<uint32_t>>& eqclasses,
@@ -235,6 +238,7 @@ private:
 template <>
 inline void EquivalenceClassBuilder<TGValue>::addGroup(TranscriptGroup&& g,
                                                        std::vector<double>& weights) {
+  /// @brief 看起來是當新的fragment有跟舊的一樣的transcript group時, 用來更新transcript group count
   auto upfn = [&weights](TGValue& x) -> void {
     // update the count
     x.count++;
@@ -262,7 +266,7 @@ inline void EquivalenceClassBuilder<TGValue>::populateTargets(
 
     countVec_.emplace_back(std::make_pair(std::move(tgroup), val));
     for (uint32_t tid: tids) {
-      transcripts[tid].addTotalCount(count);
+      transcripts[tid].addTotalCount(count); /// @brief 一個eqv class count分給所有其中transcript
     }
 
     if ( tids.size() == 1 ) { transcripts[tids[0]].addUniqueCount(count); }

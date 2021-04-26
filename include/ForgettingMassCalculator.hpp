@@ -28,9 +28,11 @@ public:
     logForgettingMasses_.push_back(fm);
     cumulativeLogForgettingMasses_.push_back(fm);
 
+    /// fm = fm + ... 其中左邊fm就是mi, 右邊fm就是m{i-1}
+    /// forgettingFactor_就是eXpress的c
     for (size_t i = 2; i < numMiniBatches - 1; ++i) {
       fm += forgettingFactor_ * std::log(static_cast<double>(i - 1)) -
-            std::log(std::pow(static_cast<double>(i), forgettingFactor_) - 1);
+            std::log(std::pow(static_cast<double>(i), forgettingFactor_) - 1); /// @brief 這是取log版本的eXpress的公式mi = mi-1 * (i-1)^c / (i^c-1)
       logForgettingMasses_.push_back(fm);
       // fill in cumulative mass
       cumulativeLogForgettingMasses_.push_back(

@@ -11,8 +11,8 @@ BAMQueue<FragT>::BAMQueue(std::vector<boost::filesystem::path>& fnames, LibraryF
     numUnaligned_(0), numMappedReads_(0), 
     numUniquelyMappedReads_(0),
     //fragmentQueue_(2000000),
-    alnGroupPool_(2000000),
-    alnGroupQueue_(1000000),
+    alnGroupPool_(2000000), /// @brief moodyCamel::ConcurrentQueue<AlignmentGroup<FragT*>*>
+    alnGroupQueue_(1000000), /// @brief moodyCamel::ReaderWriterQueue<AlignmentGroup<FragT*>*>
     doneParsing_(false),
     exhaustedAlnGroupPool_(false) {
         namespace bfs = boost::filesystem;

@@ -450,6 +450,7 @@ public:
   }
 
   // Will delete seq on destruction
+  /// @brief 用指標指向這個transcript的mapped reads
   void setSequenceOwned(const char* seq, bool needGC = false,
                         bool reduceGCMemory = false) {
     Sequence_ = std::unique_ptr<const char, void (*)(const char*)>(
