@@ -376,6 +376,8 @@ for (auto& alnGroup : alignmentGroups) {
 
           //double maxLogAlnScore{LOG_0};
           int sidx{0};
+
+std::vector<double> fragvec, fragvec_two;
 for (auto& aln : alnGroup->alignments()) {
             auto transcriptID = aln->transcriptID();
             auto& transcript = refs[transcriptID];
@@ -417,7 +419,7 @@ for (auto& aln : alnGroup->alignments()) {
               if (burnedIn) {
                 /* condition fragment length prob on txp length */
                 size_t rlen = static_cast<size_t>(refLength);
-                double refLengthCM = cmfCache.get_or_update(fl, fetchCMF); /// @brief cmfCache也是log space只是名字取的不好
+                double refLengthCM = cmfCache.get_or_update(rlen, fetchCMF); /// @brief cmfCache也是log space只是名字取的不好
 
                 /// @brief 基本上都會computeMass, 因為read length通常短於txp length
                 bool computeMass = 
@@ -425,6 +427,16 @@ for (auto& aln : alnGroup->alignments()) {
                 /// @brief 例如uniform dist, 若transciript越短則logFragProb越高
                 logFragProb = (computeMass) ? (lenProb - refLengthCM)
                                             : salmon::math::LOG_EPSILON; 
+// if(transcriptID == 31744)
+// {
+//     std::cerr << "transcriptID:" << transcriptID << " logFragProb:" << logFragProb << " lenProb:" << lenProb << " refLengthCM:" << refLengthCM << std::endl;
+//     // fragvec.emplace_back(logFragProb); fragvec.emplace_back(lenProb); fragvec.emplace_back(refLengthCM);
+// }
+// else if(transcriptID == 31745)
+// {
+//     std::cerr << "transcriptID:" << transcriptID << " logFragProb:" << logFragProb << " lenProb:" << lenProb << " refLengthCM:" << refLengthCM << std::endl;
+//     // fragvec_two.emplace_back(logFragProb); fragvec_two.emplace_back(lenProb); fragvec_two.emplace_back(refLengthCM);
+// }
                 if (computeMass and refLengthCM < lenProb) {
                   // Threading is hard!  It's possible that an update to the PMF
                   // snuck in between when we asked to cache the CMF and when
@@ -548,6 +560,7 @@ for (auto& aln : alnGroup->alignments()) {
 
             // The overall mass of this transcript, which is used to
             // account for this transcript's relaive abundance
+            /// @brief 初始化比較特別的地方, 感覺是這邊, 越早observed會疊越多logForgettingMass
             double transcriptLogCount = transcript.mass(initialRound);
 
             if (transcriptLogCount != LOG_0 and auxProb != LOG_0 and
@@ -566,29 +579,24 @@ for (auto& aln : alnGroup->alignments()) {
               auxProbs.push_back(auxProb);
               auxDenom = salmon::math::logAdd(auxDenom, auxProb);
 
-auto myprint = [&](std::string str)
-{
-if (std::string(aln->getName()) == str) 
-{
-std::cerr << " aln->getName() " << aln->getName() << std::endl;
-std::cerr << "aln->transcriptID() " << aln->transcriptID() << std::endl;
-std::cerr << "transcriptLogCount " << transcriptLogCount << std::endl;
-std::cerr << "logFragProb " << logFragProb << std::endl;
-std::cerr << "errLike " << errLike << std::endl;
-std::cerr << "logAlignCompatProb " << logAlignCompatProb << std::endl;
-std::cerr << "auxProb " << auxProb << std::endl;
-std::cerr << "startPosProb " << startPosProb << std::endl;
-std::cerr << "aln->logProb " << aln->logProb << std::endl;
-std::cerr << "sumOfAlignProbs " << sumOfAlignProbs << std::endl;
-}
-};
-myprint("NB501708:266:H3CFVBGXH:1:11101:10252:12045"); // mt-Co2-201 only
-myprint("NB501708:266:H3CFVBGXH:1:11101:15920:16680"); // mt-Co2-201(id140973), Gm28661(id701)
-
             } else {
               aln->logProb = LOG_0;
             }
+
+// auto it1 = std::find(txpIDs.begin(), txpIDs.end(), 31744);
+// auto it2 = std::find(txpIDs.begin(), txpIDs.end(), 31745);
+// if( (it1!=txpIDs.end()) && (it2!=txpIDs.end()))
+// {
+//     std::cerr << std::endl;
+//     for(auto iter=fragvec.begin(); iter!=fragvec.end(); ++iter)
+//         std::cerr << (*iter) << " ";
+//     std::cerr << std::endl;
+//     for(auto iter=fragvec_two.begin(); iter!=fragvec_two.end(); ++iter)
+//         std::cerr << (*iter) << " ";
+//     std::cerr << std::endl;
+// }
 } /// @brief aln in alignment_group
+
           // If we have a 0-probability fragment
           if (sumOfAlignProbs == LOG_0) {
             ++zeroProbFrags;
@@ -604,7 +612,6 @@ myprint("NB501708:266:H3CFVBGXH:1:11101:15920:16680"); // mt-Co2-201(id140973), 
           }
 
           if (txpIDs.size() > 0) {
-
             if (rangeFactorization > 0) {
               int txpsSize = txpIDs.size();
               int rangeCount = std::sqrt(txpsSize) + rangeFactorization;
@@ -616,8 +623,10 @@ myprint("NB501708:266:H3CFVBGXH:1:11101:15920:16680"); // mt-Co2-201(id140973), 
             }
             /// @brief txpIDs: [txp1, txp2, auxProbs[txp1]*rangeCount, auxProbs[txp2]*rangeCount]
             /// @brief auxProbs: [aux probability of txp1, aux probability of txp2]
+
             TranscriptGroup tg(txpIDs); 
             eqBuilder.addGroup(std::move(tg), auxProbs);
+
           }
 
           // Are we doing bias correction?
@@ -634,9 +643,8 @@ myprint("NB501708:266:H3CFVBGXH:1:11101:15920:16680"); // mt-Co2-201(id140973), 
             auto& transcript = refs[transcriptID];
             
             /// 這邊看起來有點問題, 如果有一個transcript幾乎出現在所有fragment的alignment, 
-            /// 那他會無緣無故多拿超多forgettingMass, 可能是false positive成因
+            /// 那他會無緣無故多拿超多aln->logProb, 可能是false positive成因
             double newMass = logForgettingMass + aln->logProb;
-std::cerr << "logForgettingMass: " << logForgettingMass << " aln->logProb: " << aln->logProb << std::endl;
             transcript.addMass(newMass);
 
             // ---- Collect seq-specific bias samples ------ //

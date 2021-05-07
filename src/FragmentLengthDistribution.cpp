@@ -36,6 +36,7 @@ FragmentLengthDistribution::FragmentLengthDistribution(
 
   // Set to prior distribution
   if (prior_mu > 0.0) {
+    /// @brief bin_size=2 表示0bp,1bp屬同一length, 2bp,3bp屬同一length區間, ..., 248bp,249bp同一length區間
     boost::math::normal norm(prior_mu / bin_size,
                              prior_sigma / (bin_size * bin_size));
 
@@ -44,12 +45,14 @@ FragmentLengthDistribution::FragmentLengthDistribution(
 
     for (size_t i = 0; i <= max_val; ++i) {
       double norm_mass =
-          boost::math::cdf(norm, i + 0.5) - boost::math::cdf(norm, i - 0.5);
-      double mass = salmon::math::LOG_EPSILON;
+          boost::math::cdf(norm, i + 0.5) - boost::math::cdf(norm, i - 0.5); /// 表示(i-0.5, i+0.5)的pdf
+      double mass = salmon::math::LOG_EPSILON; /// @brief ln(LOG_EPSILON) = -24.0067
       if (norm_mass != 0) {
-        mass = tot + log(norm_mass);
+        mass = tot + log(norm_mass); /// @brief alpha預設是1 i.e., log1=0, 不會加到
       }
       hist_[i].store(mass);
+      /// @brief norm_mass[458]似乎已達1.0
+std::cerr << "norm_mass=" << norm_mass << " hist_[" << i << "]=" << hist_[i].load() << std::endl;
       sum_.store(logAdd(sum_, log((double)i) + mass));
       totMass_.store(logAdd(totMass_, mass));
     }
@@ -68,6 +71,10 @@ FragmentLengthDistribution::FragmentLengthDistribution(
   kernel_ = vector<double>(kernel_n + 1);
   for (size_t i = 0; i <= kernel_n; i++) {
     kernel_[i] = log(boost::math::pdf(binom, i));
+    std::cerr << "kernel_[" << i << "]=" << kernel_[i] << std::endl;
+    /// @brief logarithm: -2.77259, -1.38629, -0.980829, -1.38629, -2.77259
+    /// @brief {0.0625,0.25,0.375,0.25,0.0625} = {1/16, 4/16, 6/16, 4/16, 1/16}
+    /// @brief 1:4:6:4:1 即帕斯卡三角形
   }
 }
 
@@ -96,12 +103,18 @@ void FragmentLengthDistribution::addVal(size_t len, double mass) {
     min_ = len;
   }
 
-  size_t offset = len - kernel_.size() / 2;
+  /// @brief https://dsp.stackexchange.com/questions/9987/gaussian-kernel-and-bionomial-coefficients
+  /// @brief 這是pascal triangle的offset; offset=len-0時表該列中心點
+  size_t offset = len - kernel_.size() / 2; 
 
   for (size_t i = 0; i < kernel_.size(); i++) {
     if (offset > 0 && offset < hist_.size()) {
-      double kMass = mass + kernel_[i];
-      salmon::utils::incLoopLog(hist_[offset], kMass);
+      /// @brief mass是傳logForgettingMass; kernel_[i]也是取過log的此式等同兩者相乘
+      double kMass = mass + kernel_[i]; 
+      /// @brief 以len為中心, kernel_.size()為大小的window之中都要加上( mass+kernel_[i] )
+      /// @brief 看到一條fragment長250bp, 則248~252bp都會加一些值
+      salmon::utils::incLoopLog(hist_[offset], kMass); 
+      /// @brief sum_表weighted length, log(offset)表對該長度取log, log(offset)+kMass表{linearspace之中weight*length}
       salmon::utils::incLoopLog(sum_, std::log(static_cast<double>(offset)) + kMass);
       salmon::utils::incLoopLog(totMass_, kMass);
     }

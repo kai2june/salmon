@@ -113,7 +113,7 @@ private:
   std::list<size_t> members_;
   // std::atomic<size_t> count_;
   double count_;
-  double logMass_; /// @brief 看起來是Pr({f_avg} | ti)
+  double logMass_; /// @brief 看起來是Pr({f_avg} | ti) {後來想想應該不是但不知道這到底能幹嘛}
   bool active_; /// @brief active_表示這個cluster裡面有東西
 };
 

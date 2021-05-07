@@ -116,6 +116,7 @@ struct TGValue {
     for (size_t i = 0; i < weights.size(); ++i) {
       sumOfAux += weights[i];
     }
+
     double norm = 1.0 / sumOfAux;
     for (size_t i = 0; i < weights.size(); ++i) {
       weights[i] *= norm;
@@ -165,6 +166,7 @@ public:
     size_t totalCount{0};
     auto lt = countMap_.lock_table();
     /// @brief kv是一個pair<TranscriptGroup, TGValue>
+std::cerr << "how many weights " << lt.size() << std::endl;
     for (auto& kv : lt) {
       /// @brief normalizeAux()讓kv[:].TGValue.weights加總為1.0
       kv.second.normalizeAux();

@@ -83,7 +83,7 @@ double truncateCountVector(VecT& alphas, std::vector<double>& cutoff) {
  *  Populate the prior parameters for the VBEM
  *  Note: effLens *must* be valid before calling this function.
  */
-/// @brief 從純量展開成向量
+/// @brief 從純量0.01展開成向量
 std::vector<double> populatePriorAlphas_(
     std::vector<Transcript>& transcripts, // transcripts
     Eigen::VectorXd& effLens,             // current effective length estimate
@@ -213,10 +213,13 @@ if (tgroup.valid) {
             // If this is a single-transcript group,
             // then it gets the full count.  Otherwise,
             // update according to our VBEM rule.
+
             if (BOOST_LIKELY(groupSize > 1)) {
               double denom = 0.0;
 for (size_t i = 0; i < groupSize; ++i) {
                 auto tid = txps[i];
+// if (tid == 11821) std::cerr << "groupSize:" << groupSize << std::endl;
+// if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
                 auto aux = auxs[i];
                 /// @brief aux是論文的{w^j_i}, 即combinedWeight
                 /// @brief v是equation11的分子(不含{d^j})
@@ -237,13 +240,30 @@ for (size_t i = 0; i < groupSize; ++i) {
                   double v = (alphaIn[tid]) * aux;
                   if (!std::isnan(v)) {
                     /// @brief Mstep更新alpha
+if (tid == 31744) std::cerr << "old_alphaIn[FBtr0300835]: " << alphaIn[tid] << " old_alphaOut[FBtr0300835]" << alphaOut[tid] << " v*invDenom[FBtr0300835]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
+if (tid == 31745) std::cerr << "old_alphaIn[FBtr0300834]: " << alphaIn[tid] << " old_alphaOut[FBtr0300834]" << alphaOut[tid] << " v*invDenom[FBtr0300834]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
+// if (tid == 15301) std::cerr << "old_alphaIn[FBtr0299940]: " << alphaIn[tid] << " old_alphaOut[FBtr0299940]" << alphaOut[tid] << " v*invDenom[FBtr0299940]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
+// if (tid == 15302) std::cerr << "old_alphaIn[FBtr0299941]: " << alphaIn[tid] << " old_alphaOut[FBtr0299941]" << alphaOut[tid] << " v*invDenom[FBtr0299941]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
                     salmon::utils::incLoop(alphaOut[tid], v * invDenom);
+if (tid == 31744) std::cerr << "alphaOut[FBtr0300835]: " << alphaOut[tid] << std::endl;
+if (tid == 31745) std::cerr << "alphaOut[FBtr0300834]: " << alphaOut[tid] << std::endl;
+// if (tid == 15301) std::cerr << "alphaOut[FBtr0299940]: " << alphaOut[tid] << std::endl;
+// if (tid == 15302) std::cerr << "alphaOut[FBtr0299941]: " << alphaOut[tid] << std::endl;
                   }
 }
               }
             } else {
+auto tid = txps[txps.front()];
+// if (tid == 11821) std::cerr << "groupSize:" << groupSize << std::endl;
+// if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
+// if (tid == 11821) std::cerr << "old_alphaIn[FBtr0086273]: " << alphaIn[tid] << " count: " << count << std::endl;
+// if (tid == 11822) std::cerr << "old_alphaIn[FBtr0086274]: " << alphaIn[tid] << " count: " << count << std::endl;
               salmon::utils::incLoop(alphaOut[txps.front()], count);
+// if (tid == 11821) std::cerr << "alphaOut[FBtr0086273]: " << alphaOut[tid] << std::endl;
+// if (tid == 11822) std::cerr << "alphaOut[FBtr0086274]: " << alphaOut[tid] << std::endl;
             }
+            // if(eqID==118 || eqID==15536 || eqID==20227)std::cerr << "eqID:" << eqID << "alphaOut[FBtr0086273]: " << alphaOut[11821] << "_groupSize:" << groupSize << "_count:" << count << std::endl;
+            // if(eqID==118 || eqID==15536 || eqID==20227)std::cerr << "eqID:" << eqID << "alphaOut[FBtr0086274]: " << alphaOut[11822] << "_groupSize:" << groupSize << "_count:" << count << std::endl;
 } /// @brief if(tgroup.valid)
         } /// @brief for eqID in eqVec.size()
       });
@@ -309,10 +329,13 @@ void VBEMUpdate_(EQVecT& eqVec,
             // If this is a single-transcript group,
             // then it gets the full count.  Otherwise,
             // update according to our VBEM rule.
+
             if (BOOST_LIKELY(groupSize > 1)) {
               double denom = 0.0;
               for (size_t i = 0; i < groupSize; ++i) {
                 auto tid = txps[i];
+// if (tid == 11821) std::cerr << "groupSize:" << groupSize << std::endl;
+// if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
                 auto aux = auxs[i];
                 if (expTheta[tid] > 0.0) {
                   double v = expTheta[tid] * aux;
@@ -328,14 +351,31 @@ void VBEMUpdate_(EQVecT& eqVec,
                   auto aux = auxs[i];
                   if (expTheta[tid] > 0.0) {
                     double v = expTheta[tid] * aux;
+if (tid == 15299) std::cerr << "old_alphaIn[FBtr0091710]:" << alphaIn[tid] << " old_alphaOut[FBtr0091710]" << alphaOut[tid] << " v*invDenom[FBtr0091710]:" << v*invDenom << " combinedWeights:" << aux << " count:" << count << std::endl;
+// if (tid == 15300) std::cerr << "old_alphaIn[FBtr0091711]:" << alphaIn[tid] << " old_alphaOut[FBtr0091711]" << alphaOut[tid] << " v*invDenom[FBtr0091711]:" << v*invDenom << " combinedWeights:" << aux << " count:" << count << std::endl;
+// if (tid == 15301) std::cerr << "old_alphaIn[FBtr0299940]: " << alphaIn[tid] << " old_alphaOut[FBtr0299940]" << alphaOut[tid] << " v*invDenom[FBtr0299940]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
+// if (tid == 15302) std::cerr << "old_alphaIn[FBtr0299941]: " << alphaIn[tid] << " old_alphaOut[FBtr0299941]" << alphaOut[tid] << " v*invDenom[FBtr0299941]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
                     salmon::utils::incLoop(alphaOut[tid], v * invDenom);
+if (tid == 15299) std::cerr << "alphaOut[FBtr0091710]:" << alphaOut[tid] << std::endl;
+// if (tid == 15300) std::cerr << "alphaOut[FBtr0091711]:" << alphaOut[tid] << std::endl;
+// if (tid == 15301) std::cerr << "alphaOut[FBtr0299940]: " << alphaOut[tid] << std::endl;
+// if (tid == 15302) std::cerr << "alphaOut[FBtr0299941]: " << alphaOut[tid] << std::endl;
                   }
                 }
               }
 
             } else {
+// auto tid = txps[txps.front()];
+// if (tid == 11821) std::cerr << "groupSize:" << groupSize << std::endl;
+// if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
+// if (tid == 11821) std::cerr << "old_alphaIn[FBtr0086273]: " << alphaIn[tid] << " count: " << count << std::endl;
+// if (tid == 11822) std::cerr << "old_alphaIn[FBtr0086274]: " << alphaIn[tid] << " count: " << count << std::endl;
               salmon::utils::incLoop(alphaOut[txps.front()], count);
+// if (tid == 11821) std::cerr << "alphaOut[FBtr0086273]: " << alphaOut[tid] << std::endl;
+// if (tid == 11822) std::cerr << "alphaOut[FBtr0086274]: " << alphaOut[tid] << std::endl;
             }
+            // if(eqID==118 || eqID==15536 || eqID==20227) std::cerr << "eqID:" << eqID << "alphaOut[FBtr0086273]: " << alphaOut[11821] << std::endl;
+            // if(eqID==118 || eqID==15536 || eqID==20227) std::cerr << "eqID:" << eqID << "alphaOut[FBtr0086274]: " << alphaOut[11822] << std::endl;
 } /// @brief if tgroup.valid
         } /// @brief for eqID in eqVec.size()
       });
@@ -779,6 +819,7 @@ bool CollapsedEMOptimizer::optimize(ExpT& readExp, SalmonOpts& sopt,
   /// @brief countVec_ (i.e., vector<pair<TranscriptGroup, TranscriptValue>>, i.e., equivalence class個數)
   auto& eqVec =
       readExp.equivalenceClassBuilder().eqVec();
+std::cerr << "(TranscriptGroup.size()) eqVec().size()=" << eqVec.size() << std::endl;
 
   bool noRichEq = sopt.noRichEqClasses;
 
@@ -804,6 +845,7 @@ for (size_t i = 0; i < transcripts.size(); ++i) {
     auto& txp = transcripts[i];
     /// @brief 在normalizeAlpha那邊處理完projectedCounts了
     alphas[i] = txp.projectedCounts;
+
     /// @brief totalWeight是所有transcript的projectedCounts總和
     totalWeight += alphas[i];
     effLens(i) = useEffectiveLengths
@@ -819,6 +861,8 @@ for (size_t i = 0; i < transcripts.size(); ++i) {
     /// @brief 若effLens平均2500bp的話, wi約等於2.5*uniqueCount
     auto wi = (sopt.initUniform) ? 100.0 : (uniqueCount * 1e-3 * effLens(i)); 
     alphasPrime[i] = wi;
+if (txp.id == 15299) std::cerr << "totalCounts[FBtr0091710]:" << txp.totalCounts << "uniqueCounts[FBtr0091710]:" << txp.uniqueCounts << "projectedCounts[FBtr0091710]:" << alphas[i] << "_alphasPrime[FBtr0091710]:" << alphasPrime[i] << "_uniqueCount+0.5[FBtr0091710]:" << uniqueCount << std::endl;
+if (txp.id == 15300) std::cerr << "totalCounts[FBtr0091711]:" << txp.totalCounts << "uniqueCounts[FBtr0091711]:" << txp.uniqueCounts << "projectedCounts[FBtr0091711]:" << alphas[i] << "_alphasPrime[FBtr0091711]:" << alphasPrime[i] << "_uniqueCount+0.5[FBtr0091711]:" << uniqueCount << std::endl;
     ++numActive;
     totalLen += effLens(i);
 }
@@ -842,6 +886,7 @@ for (size_t i = 0; i < transcripts.size(); ++i) {
   /// @brief 我模擬的數量(20M, 30M)通常應該是後者吧
   /// @param numRequiredFragments : default 5千萬
   double fracObserved = std::min(maxFrac, totalWeight / sopt.numRequiredFragments);
+// std::cerr << "totalWeight:" << totalWeight << std::endl;
   // Above, we placed the uniformative (uniform) initalization into the
   // alphasPrime variables.  If that's what the user requested, then copy those
   // over to the alphas
@@ -861,6 +906,8 @@ for (size_t i = 0; i < transcripts.size(); ++i) {
       /// @brief (總之就是另外四成 uniqueCounts[i]或projectedCounts[:]/transcripts.size())
       alphas[i] =
           (alphas[i] * fracObserved) + (uniAbund * (1.0 - fracObserved));
+// if (i == 11821) std::cerr << "newalphas[FBtr0086273]:" << alphas[i] << std::endl;
+// if (i == 11822) std::cerr << "newalphas[FBtr0086274]:" << alphas[i] << std::endl;
       alphasPrime[i] = 1.0;
     }
   }
@@ -907,6 +954,8 @@ for (size_t i = 0; i < classSize; ++i) {
             /// @brief combinedWeights就是根據Pr(l)*Pr(a)*Pr(o)*Pr(p)
             /// @brief 1.0/el, 所以越長的話combinedWeights越低, 難怪被長的覆蓋的短transcript會false positive
             double wt = sopt.eqClassMode ? v.weights[i] : v.count * v.weights[i] * probStartPos;
+// if (tid == 11821) std::cerr << "combinedWeights[FBtr0086273]_initialize:" << wt << std::endl;
+// if (tid == 11822) std::cerr << "combinedWeights[FBtr0086274]_initialize:" << wt << std::endl;
             v.combinedWeights.push_back(wt);
             wsum += wt;
 }
@@ -1006,7 +1055,12 @@ while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
           converged = false;
         }
       }
+// if(i == 11821) std::cerr << "alphas[FBtr0086273] out there1: " << alphas[i].load() << std::endl;
+// if(i == 11822) std::cerr << "alphas[FBtr0086274] out there1: " << alphas[i].load() << std::endl;
       alphas[i].store(alphasPrime[i].load());
+// if(i == 11821) std::cerr << "alphas[FBtr0086273] out there2: " << alphas[i].load() << std::endl;
+// if(i == 11822) std::cerr << "alphas[FBtr0086274] out there2: " << alphas[i].load() << std::endl;
+// std::cerr << std::endl;
       alphasPrime[i].store(0.0);
     }
 

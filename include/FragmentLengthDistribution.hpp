@@ -28,18 +28,19 @@ class FragmentLengthDistribution {
   /**
    * A private vector that stores the (logged) kernel values.
    **/
-  std::vector<double> kernel_;
+  std::vector<double> kernel_; /// 就是帕斯卡三角形1/16,4/16,6/16,4/16,1/16
   /**
    * A private vector that stores the observed (logged) mass for each length.
    */
-  std::vector<std::atomic<double>> hist_;
+  std::vector<std::atomic<double>> hist_; /// 就是看到多少條的概念, 但實作上是forgettingMass*kernel_[i]
 
   /**
    * A private vector that stores the observed (logged) mass for each length.
    */
+  /// 5000條~500萬條更新過程暫存的hist_
   std::vector<double> cachedCMF_;
   std::vector<double> cachedPMF_;
-  volatile bool haveCachedCMF_;
+  volatile bool haveCachedCMF_; /// false的時候表示更新完成burnedIn
   // std::mutex fldMut_;
   SpinLock sl_;
 

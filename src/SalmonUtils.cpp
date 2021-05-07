@@ -469,6 +469,7 @@ void normalizeAlphas(const SalmonOpts& sopt, AlnLibT& alnLib) {
   const double logNumFragments =
       std::log(static_cast<double>(numMappedFragments));
   auto clusters = alnLib.clusterForest().getClusters();
+std::cerr << "clusterForest.size()=" << clusters.size() << std::endl;
   size_t clusterID = 0;
   for (auto cptr : clusters) {
 
