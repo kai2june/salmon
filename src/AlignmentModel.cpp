@@ -481,6 +481,7 @@ void AlignmentModel::update(
       advanceInReference = false;
 
       for (size_t i = 0; i < opLen; ++i) {
+std::cerr << "opLen=" << opLen << "_i=" << i << std::endl;
         if (advanceInRead) {
           // Shouldn't happen!
           if (readIdx >= readLen) {

@@ -40,7 +40,7 @@ FragmentLengthDistribution::FragmentLengthDistribution(
     boost::math::normal norm(prior_mu / bin_size,
                              prior_sigma / (bin_size * bin_size));
 
-    std::vector<std::atomic<double>> hist_tmp(max_val / bin_size + 1);
+    std::vector<std::atomic<double>> hist_tmp(max_val / bin_size + 1); /// @brief +1是表示>1000bp則歸類在最後一個bin
     std::swap(hist_, hist_tmp);
 
     for (size_t i = 0; i <= max_val; ++i) {
@@ -50,7 +50,7 @@ FragmentLengthDistribution::FragmentLengthDistribution(
       if (norm_mass != 0) {
         mass = tot + log(norm_mass); /// @brief alpha預設是1 i.e., log1=0, 不會加到
       }
-      hist_[i].store(mass);
+      hist_[i].store(mass); /// @brief hist_就是observed    
       /// @brief norm_mass[458]似乎已達1.0
 std::cerr << "norm_mass=" << norm_mass << " hist_[" << i << "]=" << hist_[i].load() << std::endl;
       sum_.store(logAdd(sum_, log((double)i) + mass));
