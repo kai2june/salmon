@@ -11,3 +11,4 @@ bool verbose=false; // Apparently, we *need* this (OSX)
 #include "LibraryTypeTests.cpp"
 //#include "KmerHistTests.cpp"
 
+#include "FragmentCoverageDistributionTests.cpp"
