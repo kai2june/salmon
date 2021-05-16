@@ -10,27 +10,30 @@ class FragmentCoverageDistribution
 {
   public:
     FragmentCoverageDistribution(size_t numBins = 100) 
-        : numBins_(numBins), coeff_(numBins+1), count_(numBins+1), totCount_(0), pmf_(numBins+1), cmf_(numBins+1), isFinal(false) 
+        : numBins_(numBins), coeff_(numBins+1), count_(numBins+1), totCount_(0.0), pmf_(numBins+1), cmf_(numBins+1), isFinal_(false) 
     {
         std::iota(coeff_.rbegin(), coeff_.rend(), 1);
     }
 
-    void addCountFromSAM(int32_t pos, int32_t pnext, int32_t tlen, int32_t reflen)
+    void addCountFromSAM(double mass, int32_t reflen, int32_t tlen, int32_t pos, int32_t pnext=std::numeric_limits<int32_t>::max())
     {
         int32_t start_bin(0), end_bin(0);
-        computeBin(pos, pnext, tlen, reflen, start_bin, end_bin);
-        count_[start_bin] += 1;
-        count_[end_bin] -= 1;
-        totCount_ += (end_bin - start_bin);
+        computeBin(reflen, tlen, pos, pnext, start_bin, end_bin);
+        double new_start = count_[start_bin].load() + mass;
+        double new_end = count_[end_bin].load() - mass;
+        double new_totCount = totCount_.load() + (end_bin-start_bin)*mass;
+        count_[start_bin].store(new_start);
+        count_[end_bin].store(new_end);
+        totCount_.store(new_totCount);
     }
     
     /// @brief evaluating how many base count a fragment spans and then divided by total base count  
-    double evaluateProb(int32_t pos, int32_t pnext, int32_t tlen, int32_t reflen, bool isFinal)
+    double evaluateProb(int32_t reflen, int32_t tlen, int32_t pos, int32_t pnext=std::numeric_limits<int32_t>::max())
     {
         double prob = 0.0;
         int32_t start_bin(0), end_bin(0);
-        computeBin(pos, pnext, tlen, reflen, start_bin, end_bin);
-        if (isFinal)
+        computeBin(reflen, tlen, pos, pnext, start_bin, end_bin);
+        if (isFinal_)
         {
             if(start_bin == 0)
                 prob = cmf_[end_bin-1].load();
@@ -40,9 +43,9 @@ class FragmentCoverageDistribution
         else
         {
             for(int32_t i=0; i<end_bin; ++i)
-                prob += (double)coeff_[numBins_ - (end_bin-1) + i] * (double)count_[i].load();
+                prob += (double)coeff_[numBins_ - (end_bin-1) + i] * count_[i].load();
             for(int32_t i=0; i<start_bin; ++i)
-                prob -= (double)coeff_[numBins_ - (start_bin-1) + i] * (double)count_[i].load();
+                prob -= (double)coeff_[numBins_ - (start_bin-1) + i] * count_[i].load();
             prob /= totCount_.load();
         }
 
@@ -51,35 +54,35 @@ class FragmentCoverageDistribution
 
     void finalize() 
     {
-        isFinal.store(true);
+        isFinal_.store(true);
         finalizePMF();
         finalizeCMF();
     }
   public:
-    const std::vector<std::atomic<int32_t>>& getCount()
+    const std::vector<std::atomic<double>>& getCount() const
     {
         return count_;
     }
-    size_t getTotCount()
+    double getTotCount() const
     {
         return totCount_.load();
     }
-    const std::vector<std::atomic<double>>& getpmf()
+    const std::vector<std::atomic<double>>& getpmf() const
     {
         return pmf_;
     }
-    const std::vector<std::atomic<double>>& getcmf()
+    const std::vector<std::atomic<double>>& getcmf() const
     {
         return cmf_;
     }
-    bool getIsFinal()
+    bool getIsFinal() const
     {
-        return isFinal.load();
+        return isFinal_.load();
     }
 
   private:
     /// @brief return closed-opened interval [start_bin, end_bin)
-    void computeBin(int32_t pos, int32_t pnext, int32_t tlen, int32_t reflen, int32_t& start_bin, int32_t& end_bin)
+    void computeBin(int32_t reflen, int32_t tlen, int32_t pos, int32_t pnext, int32_t& start_bin, int32_t& end_bin)
     {
         int32_t start = std::min(pos, pnext);
         int32_t end = start + std::abs(tlen);
@@ -94,7 +97,7 @@ class FragmentCoverageDistribution
     void finalizePMF()
     {
         for(size_t i=0; i<pmf_.size(); ++i)
-            pmf_[i].store( std::accumulate(count_.begin(), count_.begin()+i+1, 0.0) / (double)totCount_.load() );
+            pmf_[i].store( std::accumulate(count_.begin(), count_.begin()+i+1, 0.0) / totCount_.load() );
     }
 
     void finalizeCMF()
@@ -108,11 +111,11 @@ class FragmentCoverageDistribution
     /// @brief coefficient for calculating plusplusminusminus algorithm
     std::vector<int32_t> coeff_;
 
-    std::vector<std::atomic<int32_t>> count_;
-    std::atomic<size_t> totCount_;
+    std::vector<std::atomic<double>> count_;
+    std::atomic<double> totCount_;
 
     std::vector<std::atomic<double>> pmf_;
     std::vector<std::atomic<double>> cmf_;
 
-    std::atomic<bool> isFinal;
+    std::atomic<bool> isFinal_;
 };

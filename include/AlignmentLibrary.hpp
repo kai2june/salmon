@@ -32,6 +32,8 @@ extern "C" {
 #include "concurrentqueue.h"
 #include "parallel_hashmap/phmap.h"
 
+#include "FragmentCoverageDistribution.hpp"
+
 // Boost includes
 #include <boost/filesystem.hpp>
 
@@ -213,6 +215,9 @@ for (auto& txp : transcripts_) {
                                                  fragLenStd, fragLenKernelN,
                                                  fragLenKernelP, 1));
 
+    /// @brief fragment coverage distribution
+    fcDist_ = std::make_unique<FragmentCoverageDistribution>(100);
+
     /// @brief numErrorBins*82*82 matrix
     alnMod_.reset(new AlignmentModel(1.0, salmonOpts.numErrorBins));
     alnMod_->setLogger(salmonOpts.jointLog);
@@ -295,6 +300,9 @@ for (auto& txp : transcripts_) {
     flDist_.reset(new FragmentLengthDistribution(1.0, maxFragLen, meanFragLen,
                                                  fragLenStd, fragLenKernelN,
                                                  fragLenKernelP, 1));
+
+    /// @brief fragment coverage distribution
+    fcDist_ = std::make_unique<FragmentCoverageDistribution>(100);
 
     alnMod_.reset(new AlignmentModel(1.0, salmonOpts.numErrorBins));
     alnMod_->setLogger(salmonOpts.jointLog);
@@ -390,6 +398,11 @@ for (auto& txp : transcripts_) {
 
   inline FragmentLengthDistribution* fragmentLengthDistribution() const {
     return flDist_.get();
+  }
+
+  inline FragmentCoverageDistribution* fragmentCoverageDistribution() const
+  {
+      return fcDist_.get();
   }
 
   inline AlignmentModel& alignmentModel() { return *alnMod_.get(); }
@@ -647,6 +660,11 @@ private:
    *
    */
   std::unique_ptr<FragmentLengthDistribution> flDist_;
+  /**
+   *  The emperical fragment coverage distribution
+   * 
+   */
+  std::unique_ptr<FragmentCoverageDistribution> fcDist_;
   /**
    * The emperical error model
    */

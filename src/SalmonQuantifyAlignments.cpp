@@ -61,6 +61,8 @@ extern "C" {
 #include "spdlog/spdlog.h"
 #include "pufferfish/Util.hpp"
 
+#include "FragmentCoverageDistribution.hpp"
+
 namespace bfs = boost::filesystem;
 using salmon::math::LOG_0;
 using salmon::math::LOG_1;
@@ -194,6 +196,7 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
       alnLib.fragmentStartPositionDistributions();
 
   auto& fragLengthDist = *(alnLib.fragmentLengthDistribution());
+  auto& fragCovDist = *(alnLib.fragmentCoverageDistribution());
   auto& alnMod = alnLib.alignmentModel();
 
   bool useFragLengthDist{!salmonOpts.noFragLengthDist};
@@ -377,7 +380,7 @@ for (auto& alnGroup : alignmentGroups) {
           //double maxLogAlnScore{LOG_0};
           int sidx{0};
 
-std::vector<double> fragvec, fragvec_two;
+// std::vector<double> fragvec, fragvec_two;
 for (auto& aln : alnGroup->alignments()) {
             auto transcriptID = aln->transcriptID();
             auto& transcript = refs[transcriptID];
@@ -450,6 +453,16 @@ for (auto& aln : alnGroup->alignments()) {
               } else if (useAuxParams) {
                 logFragProb = lenProb;
               }
+            }
+
+            /// @brief fragment coverage distribution
+            double logFragCovProb = salmon::math::LOG_1;
+            if(considerCondProb)
+            {
+                if (burnedIn && !fragCovDist.getIsFinal())
+                    fragCovDist.finalize();  
+                double prob = salmon::math::log(fragCovDist.evaluateProb(refLength, aln->fragLen(), aln->left()));
+                logFragCovProb = salmon::math::logAdd(logFragCovProb, prob);
             }
 
             /*
@@ -544,7 +557,7 @@ for (auto& aln : alnGroup->alignments()) {
                                  ? -std::log(refLength - flen + 1)
                                  : salmon::math::LOG_EPSILON;
             }
-
+  
             double fragStartLogNumerator{salmon::math::LOG_1};
             double fragStartLogDenominator{salmon::math::LOG_1};
 
@@ -556,8 +569,8 @@ for (auto& aln : alnGroup->alignments()) {
 
             // The auxProb does *not* account for the start position
             // probability!
-            double auxProb = logFragProb + errLike + logAlignCompatProb; /// @brief Pr(l) + Pr(a) + Pr(o)
-
+            double auxProb = logFragProb + errLike + logAlignCompatProb + logFragCovProb; /// @brief Pr(l) + Pr(a) + Pr(o)
+// std::cerr << "logFragProb=" << logFragProb << ",errLike=" << errLike << ",logAlignCompatProb=" << logAlignCompatProb << ",logFragCovProb=" << logFragCovProb << std::endl; 
             // The overall mass of this transcript, which is used to
             // account for this transcript's relaive abundance
             /// @brief 初始化比較特別的地方, 感覺是這邊, 越早observed會疊越多logForgettingMass
@@ -927,6 +940,11 @@ for (auto& aln : alnGroup->alignments()) {
                   fragLengthDist.addVal(fragLength, logForgettingMass);
                 }
               }
+              // update fragment coverage distribution
+              int32_t fragLen = aln->fragLen();
+              if (fragLen == 0)
+                  fragLen = salmonOpts.fragLenDistPriorMean;
+              fragCovDist.addCountFromSAM(logForgettingMass, transcript.RefLength, fragLen, aln->left());
             } /// @brief if (!burnedIn and r < std::exp(aln->logProb))
           } /// @brief 第二次 aln in alnGroup
 
