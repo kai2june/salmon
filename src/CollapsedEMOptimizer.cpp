@@ -177,6 +177,129 @@ void VBEMUpdate_(std::vector<std::vector<uint32_t>>& txpGroupLabels,
   }
 }
 
+
+template <typename EQVecT>
+void winnerTakesAll(EQVecT& eqVec,
+                    CollapsedEMOptimizer::VecType& alphaIn,
+                    CollapsedEMOptimizer::VecType& alphaOut,
+                    double threshold)
+{
+        for (auto& kv : eqVec) {
+
+          uint64_t count = kv.second.count;  
+          // for each transcript in this class
+          const TranscriptGroup& tgroup = kv.first;
+          if (tgroup.valid) {
+            const std::vector<uint32_t>& txps = tgroup.txps;
+            const auto& auxs = kv.second.combinedWeights;
+
+            size_t groupSize = kv.second.weights.size(); // txps.size();
+            // If this is a single-transcript group,
+            // then it gets the full count.  Otherwise,
+            // update according to our VBEM rule.
+
+            if (BOOST_LIKELY(groupSize > 1)) {
+
+              double denom = 0.0;
+              for (size_t i = 0; i < groupSize; ++i) {
+                auto tid = txps[i];
+                auto aux = auxs[i];
+                double v = (alphaIn[tid]) * aux;
+                denom += v;
+              }
+
+              if (denom <= ::minEQClassWeight) {
+                // tgroup.setValid(false);
+              } else {
+                  if (*std::max_element(auxs.begin(), auxs.end()) > threshold)
+                  {
+                    if (!std::isnan(count)) {
+                        salmon::utils::incLoop(alphaOut[txps[std::max_element(auxs.begin(), auxs.end())-auxs.begin()]], count);
+                    }
+                  }
+                  else
+                  {
+                    double invDenom = count / denom;
+                    for (size_t i = 0; i < groupSize; ++i) {
+                        auto tid = txps[i];
+                        auto aux = auxs[i];
+                        double v = (alphaIn[tid]) * aux;
+                        if (!std::isnan(v)) {
+                            salmon::utils::incLoop(alphaOut[tid], v * invDenom);
+                        }
+                    }
+                  }
+              }
+            } 
+            else
+            {
+                salmon::utils::incLoop(alphaOut[txps.front()], count);
+            }
+          } /// @brief if(tgroup.valid)
+        } /// @brief for eqID in eqVec.size()
+}
+
+template <typename EQVecT>
+void eqClassInnerEntropy(EQVecT& eqVec,
+                         CollapsedEMOptimizer::VecType& alphaIn,
+                         CollapsedEMOptimizer::VecType& alphaOut)
+{    
+        for (auto& kv : eqVec) {
+
+          double count = (double)kv.second.count;  
+          // for each transcript in this class
+          const TranscriptGroup& tgroup = kv.first;
+          if (tgroup.valid) {
+            const std::vector<uint32_t>& txps = tgroup.txps;
+            const auto& auxs = kv.second.combinedWeights;
+
+            size_t groupSize = kv.second.weights.size(); // txps.size();
+            // If this is a single-transcript group,
+            // then it gets the full count.  Otherwise,
+            // update according to our VBEM rule.
+
+            double entropy(0.0);
+            for (size_t i = 0; i < groupSize; ++i)
+                entropy += -auxs[i]*salmon::math::log(auxs[i]);
+            if(entropy < 1.0)
+                entropy = 0.33;
+            std::cerr << "count=" << count << ",entropy=" << entropy << std::endl;
+            if ( *std::max_element(auxs.begin(), auxs.end()) <= 0.5)
+                count = count / entropy;
+
+            if (BOOST_LIKELY(groupSize > 1)) {
+
+              double denom = 0.0;
+              for (size_t i = 0; i < groupSize; ++i) {
+                auto tid = txps[i];
+                auto aux = auxs[i];
+                double v = (alphaIn[tid]) * aux;
+                denom += v;
+              }
+
+              if (denom <= ::minEQClassWeight) {
+                // tgroup.setValid(false);
+              } else {
+                    double invDenom = count / denom;
+                    for (size_t i = 0; i < groupSize; ++i) 
+                    {
+                        auto tid = txps[i];
+                        auto aux = auxs[i];
+                        double v = (alphaIn[tid]) * aux;
+                        if (!std::isnan(v)) {
+                            salmon::utils::incLoop(alphaOut[tid], v * invDenom);
+                        }
+                    }
+                  }
+            }
+            else
+            {
+                salmon::utils::incLoop(alphaOut[txps.front()], count);
+            }
+          } 
+        } /// @brief if(tgroup.valid)
+} /// @brief for eqID in eqVec.size()
+
 /*
  * Use the "standard" EM algorithm over equivalence
  * classes to estimate the latent variables (alphaOut)
@@ -240,13 +363,13 @@ for (size_t i = 0; i < groupSize; ++i) {
                   double v = (alphaIn[tid]) * aux;
                   if (!std::isnan(v)) {
                     /// @brief Mstep更新alpha
-if (tid == 31744) std::cerr << "old_alphaIn[FBtr0300835]: " << alphaIn[tid] << " old_alphaOut[FBtr0300835]" << alphaOut[tid] << " v*invDenom[FBtr0300835]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
-if (tid == 31745) std::cerr << "old_alphaIn[FBtr0300834]: " << alphaIn[tid] << " old_alphaOut[FBtr0300834]" << alphaOut[tid] << " v*invDenom[FBtr0300834]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
+// if (tid == 31744) std::cerr << "old_alphaIn[FBtr0300835]: " << alphaIn[tid] << " old_alphaOut[FBtr0300835]" << alphaOut[tid] << " v*invDenom[FBtr0300835]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
+// if (tid == 31745) std::cerr << "old_alphaIn[FBtr0300834]: " << alphaIn[tid] << " old_alphaOut[FBtr0300834]" << alphaOut[tid] << " v*invDenom[FBtr0300834]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
 // if (tid == 15301) std::cerr << "old_alphaIn[FBtr0299940]: " << alphaIn[tid] << " old_alphaOut[FBtr0299940]" << alphaOut[tid] << " v*invDenom[FBtr0299940]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
 // if (tid == 15302) std::cerr << "old_alphaIn[FBtr0299941]: " << alphaIn[tid] << " old_alphaOut[FBtr0299941]" << alphaOut[tid] << " v*invDenom[FBtr0299941]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
                     salmon::utils::incLoop(alphaOut[tid], v * invDenom);
-if (tid == 31744) std::cerr << "alphaOut[FBtr0300835]: " << alphaOut[tid] << std::endl;
-if (tid == 31745) std::cerr << "alphaOut[FBtr0300834]: " << alphaOut[tid] << std::endl;
+// if (tid == 31744) std::cerr << "alphaOut[FBtr0300835]: " << alphaOut[tid] << std::endl;
+// if (tid == 31745) std::cerr << "alphaOut[FBtr0300834]: " << alphaOut[tid] << std::endl;
 // if (tid == 15301) std::cerr << "alphaOut[FBtr0299940]: " << alphaOut[tid] << std::endl;
 // if (tid == 15302) std::cerr << "alphaOut[FBtr0299941]: " << alphaOut[tid] << std::endl;
                   }
@@ -351,12 +474,12 @@ void VBEMUpdate_(EQVecT& eqVec,
                   auto aux = auxs[i];
                   if (expTheta[tid] > 0.0) {
                     double v = expTheta[tid] * aux;
-if (tid == 15299) std::cerr << "old_alphaIn[FBtr0091710]:" << alphaIn[tid] << " old_alphaOut[FBtr0091710]" << alphaOut[tid] << " v*invDenom[FBtr0091710]:" << v*invDenom << " combinedWeights:" << aux << " count:" << count << std::endl;
+// if (tid == 15299) std::cerr << "old_alphaIn[FBtr0091710]:" << alphaIn[tid] << " old_alphaOut[FBtr0091710]" << alphaOut[tid] << " v*invDenom[FBtr0091710]:" << v*invDenom << " combinedWeights:" << aux << " count:" << count << std::endl;
 // if (tid == 15300) std::cerr << "old_alphaIn[FBtr0091711]:" << alphaIn[tid] << " old_alphaOut[FBtr0091711]" << alphaOut[tid] << " v*invDenom[FBtr0091711]:" << v*invDenom << " combinedWeights:" << aux << " count:" << count << std::endl;
 // if (tid == 15301) std::cerr << "old_alphaIn[FBtr0299940]: " << alphaIn[tid] << " old_alphaOut[FBtr0299940]" << alphaOut[tid] << " v*invDenom[FBtr0299940]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
 // if (tid == 15302) std::cerr << "old_alphaIn[FBtr0299941]: " << alphaIn[tid] << " old_alphaOut[FBtr0299941]" << alphaOut[tid] << " v*invDenom[FBtr0299941]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
                     salmon::utils::incLoop(alphaOut[tid], v * invDenom);
-if (tid == 15299) std::cerr << "alphaOut[FBtr0091710]:" << alphaOut[tid] << std::endl;
+// if (tid == 15299) std::cerr << "alphaOut[FBtr0091710]:" << alphaOut[tid] << std::endl;
 // if (tid == 15300) std::cerr << "alphaOut[FBtr0091711]:" << alphaOut[tid] << std::endl;
 // if (tid == 15301) std::cerr << "alphaOut[FBtr0299940]: " << alphaOut[tid] << std::endl;
 // if (tid == 15302) std::cerr << "alphaOut[FBtr0299941]: " << alphaOut[tid] << std::endl;
@@ -819,7 +942,7 @@ bool CollapsedEMOptimizer::optimize(ExpT& readExp, SalmonOpts& sopt,
   /// @brief countVec_ (i.e., vector<pair<TranscriptGroup, TranscriptValue>>, i.e., equivalence class個數)
   auto& eqVec =
       readExp.equivalenceClassBuilder().eqVec();
-std::cerr << "(TranscriptGroup.size()) eqVec().size()=" << eqVec.size() << std::endl;
+// std::cerr << "(TranscriptGroup.size()) eqVec().size()=" << eqVec.size() << std::endl;
 
   bool noRichEq = sopt.noRichEqClasses;
 
@@ -861,8 +984,8 @@ for (size_t i = 0; i < transcripts.size(); ++i) {
     /// @brief 若effLens平均2500bp的話, wi約等於2.5*uniqueCount
     auto wi = (sopt.initUniform) ? 100.0 : (uniqueCount * 1e-3 * effLens(i)); 
     alphasPrime[i] = wi;
-if (txp.id == 15299) std::cerr << "totalCounts[FBtr0091710]:" << txp.totalCounts << "uniqueCounts[FBtr0091710]:" << txp.uniqueCounts << "projectedCounts[FBtr0091710]:" << alphas[i] << "_alphasPrime[FBtr0091710]:" << alphasPrime[i] << "_uniqueCount+0.5[FBtr0091710]:" << uniqueCount << std::endl;
-if (txp.id == 15300) std::cerr << "totalCounts[FBtr0091711]:" << txp.totalCounts << "uniqueCounts[FBtr0091711]:" << txp.uniqueCounts << "projectedCounts[FBtr0091711]:" << alphas[i] << "_alphasPrime[FBtr0091711]:" << alphasPrime[i] << "_uniqueCount+0.5[FBtr0091711]:" << uniqueCount << std::endl;
+// if (txp.id == 15299) std::cerr << "totalCounts[FBtr0091710]:" << txp.totalCounts << "uniqueCounts[FBtr0091710]:" << txp.uniqueCounts << "projectedCounts[FBtr0091710]:" << alphas[i] << "_alphasPrime[FBtr0091710]:" << alphasPrime[i] << "_uniqueCount+0.5[FBtr0091710]:" << uniqueCount << std::endl;
+// if (txp.id == 15300) std::cerr << "totalCounts[FBtr0091711]:" << txp.totalCounts << "uniqueCounts[FBtr0091711]:" << txp.uniqueCounts << "projectedCounts[FBtr0091711]:" << alphas[i] << "_alphasPrime[FBtr0091711]:" << alphasPrime[i] << "_uniqueCount+0.5[FBtr0091711]:" << uniqueCount << std::endl;
     ++numActive;
     totalLen += effLens(i);
 }
@@ -1095,6 +1218,29 @@ while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
     ++itNum;
 } /// @brief while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
 
+/// @brief normalized alphas
+double alphaDenom = 0.0;
+for (size_t i = 0; i < alphas.size(); ++i)
+    alphaDenom += alphas[i];
+for (size_t i=0; i<alphas.size(); ++i)
+    alphas[i] = alphas[i] / alphaDenom;
+
+/// @brief 測試normalized alphas是否合理, 因此多試一round VBEM
+// VBEMUpdate_(eqVec, priorAlphas, alphas,
+//             alphasPrime, expTheta);
+
+/// @brief 贏者全拿, 但只少要拿大於一半
+// double threshold = 0.6;
+// winnerTakesAll(eqVec, alphas, alphasPrime, threshold);
+
+/// @brief 每個eqclass根據各自entropy調整count數
+// eqClassInnerEntropy(eqVec, alphas, alphasPrime);
+
+/// @brief 放至alphas
+// for (size_t i = 0; i < transcripts.size(); ++i) {
+//     alphas[i].store(alphasPrime[i].load());
+//     alphasPrime[i].store(0.0);
+// }
 
   /* -- v0.8.x
   if (alphaSum < ::minWeight) {
