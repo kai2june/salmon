@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <sstream>
 
 #include "json.hpp"
 #include "tbb/combinable.h"
@@ -1106,9 +1107,12 @@ TranscriptGeneMap transcriptGeneMapFromGTF(const std::string& fname,
   // Iterate over all transcript features and build the
   // transcript <-> key vector.
   auto nfeat = reader.gflst.Count();
+std::cerr << "nfeat.size():" << nfeat << std::endl;
   std::vector<TranscriptKeyPair> feats;
   for (int i = 0; i < nfeat; ++i) {
     auto f = reader.gflst[i];
+std::cerr << "f->getID():" << f->getID();
+
     if (f->isTranscript()) {
       const char* keyStr = nullptr;
       switch (tkey) {
@@ -1122,6 +1126,7 @@ TranscriptGeneMap transcriptGeneMapFromGTF(const std::string& fname,
         keyStr = f->getAttr(key.c_str());
         break;
       }
+std::cerr << ",keyStr:" << keyStr << std::endl; 
       if (keyStr != nullptr and keyStr != NULL and f->hasGffID()) {
         feats.emplace_back(f->getID(), keyStr);
       } else {
@@ -3324,6 +3329,116 @@ double compute_1_edit_threshold(int32_t l, const SalmonOpts& sopt) {
   int32_t edit_cost = std::min(mismatch - match, go + ge - match);
   int32_t max_score = l * match;
   return  (static_cast<double>(max_score + edit_cost) - 0.5) / max_score;
+}
+
+void split(std::string line, std::vector<std::string>& ll, char delimiter=' ')
+{
+    std::istringstream ss(line);
+    std::string elem;
+    if (delimiter == ' ')
+        while( ss >> elem )
+            ll.emplace_back(elem);
+    else
+    {
+        while ( std::getline(ss, elem, delimiter) )
+            ll.emplace_back(elem);
+    }
+}
+
+void createNascent(std::string gff3FileName, std::string outputFileName)
+{ 
+    std::vector<std::vector<std::string>> gene_records;
+    std::ifstream ifs(gff3FileName);
+    std::string line, last_found, found;
+    while(std::getline(ifs, line))
+    {
+        if (line[0] == '#')
+            continue;
+        
+        if ( line.find("FBgn") != std::string::npos )
+        {
+            std::vector<std::string> words;
+            std::vector<std::string> tags;
+            split(line, words);
+            split(words.back(), tags, ';');
+            for(auto iter=tags.begin(); iter!=tags.end(); ++iter)
+                if ( iter->find("geneID=") != std::string::npos )
+                    found = iter->substr(iter->find("geneID=") + 7);
+            words[2] = "exon";
+            words.back() = "Parent=" + found;
+
+            if (last_found == found)
+            {
+                gene_records.back()[3] = 
+                    stoi(gene_records.back()[3]) < stoi(words[3]) ? gene_records.back()[3] : words[3];
+                gene_records.back()[4] = 
+                    stoi(gene_records.back()[4]) > stoi(words[4]) ? gene_records.back()[4] : words[4];
+            }
+            else
+            {
+                gene_records.emplace_back(words);
+            }
+            last_found = found;
+        }
+        else
+        {
+            found.clear();
+        }
+    }
+
+    /// @brief sort for the sake of unsorted gff3 input file 
+    std::sort(gene_records.begin(), gene_records.end(), 
+        [](const std::vector<std::string>& lhs, const std::vector<std::string>& rhs)
+        {
+            return lhs.back() < rhs.back();
+        }
+    );
+    std::vector<std::vector<std::string>> unique_gene_records;
+    last_found.clear();
+    found.clear();
+    for(auto iter=gene_records.begin(); iter!=gene_records.end(); ++iter)
+    {
+        found = iter->back();
+        if (last_found == found)
+        {
+            unique_gene_records.back()[3] = 
+                stoi(unique_gene_records.back()[3]) < stoi((*iter)[3]) ? unique_gene_records.back()[3] : (*iter)[3];
+            unique_gene_records.back()[4] = 
+                stoi(unique_gene_records.back()[4]) > stoi((*iter)[4]) ? unique_gene_records.back()[4] : (*iter)[4];
+        }
+        else
+        {
+            unique_gene_records.emplace_back(*iter);
+        }
+        last_found = found;
+    }
+
+    std::ofstream ofs(outputFileName);
+    for(auto iter=unique_gene_records.begin(); iter!=unique_gene_records.end(); ++iter)
+    {
+        std::vector<std::string> txp_line = (*iter);
+        txp_line[2] = "transcript";
+        std::string id = txp_line.back().substr(txp_line.back().find("Parent=") + 7);
+        txp_line.back() = "ID=" + id + ";geneID=" + id;
+
+        std::string s1, s2;
+        for(size_t i=0; i<txp_line.size(); ++i)
+        {
+            s1 = s1 + txp_line[i];
+            s2 = s2 + (*iter)[i];
+            if ( i != txp_line.size()-1 )
+            {
+                s1 = s1 + "\t";
+                s2 = s2 + "\t";
+            }
+            else
+            {
+                s1 = s1 + "\n";
+                s2 = s2 + "\n";
+            }
+        }
+        ofs << s1 << s2;
+    }
 }
 
   /**

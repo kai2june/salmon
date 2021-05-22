@@ -316,6 +316,8 @@ LibraryFormat hitType(int32_t readStart, bool isForward);
 
 double compute_1_edit_threshold(int32_t l, const SalmonOpts& sopt);
 
+void createNascent(std::string gff3FileName, std::string outputFileName);
+
 //std::random_device get_random_device();
 
 /**
