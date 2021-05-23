@@ -62,6 +62,7 @@ extern "C" {
 #include "pufferfish/Util.hpp"
 
 #include "FragmentCoverageDistribution.hpp"
+#include "GeneFileGenerator.hpp"
 
 namespace bfs = boost::filesystem;
 using salmon::math::LOG_0;
@@ -569,7 +570,7 @@ for (auto& aln : alnGroup->alignments()) {
 
             // The auxProb does *not* account for the start position
             // probability!
-            double auxProb = logFragProb + errLike + logAlignCompatProb + logFragCovProb; /// @brief Pr(l) + Pr(a) + Pr(o)
+            double auxProb = logFragProb + errLike + logAlignCompatProb; /// @brief Pr(l) + Pr(a) + Pr(o)
 // std::cerr << "logFragProb=" << logFragProb << ",errLike=" << errLike << ",logAlignCompatProb=" << logAlignCompatProb << ",logFragCovProb=" << logFragCovProb << std::endl; 
             // The overall mass of this transcript, which is used to
             // account for this transcript's relaive abundance
@@ -1443,8 +1444,7 @@ bool processSample(AlignmentLibraryT<ReadT>& alnLib, size_t requiredObservations
 
     jointLog->info("writing output");
     // Write the main results
-    gzw.writeAbundances(sopt, alnLib, false);
-
+    gzw.writeAbundances(sopt, alnLib, false); /// @brief by author
     if (sopt.numGibbsSamples > 0) {
 
       jointLog->info("Starting Gibbs Sampler");
@@ -1674,8 +1674,12 @@ transcript abundance from RNA-seq reads
 
     bool hasAlignments {false};
     bool hasEqclasses {false};
+    bool hasGenome {false};
+    bool hasgff3 {false};
     vector<string> alignmentFileNames;
     string eqclassesFileName;
+    string genomeFileName;
+    string txpGff3FileName;
     if (vm.count("alignments")) {
       alignmentFileNames = vm["alignments"].as<vector<string>>();
       hasAlignments = true;
@@ -1684,10 +1688,30 @@ transcript abundance from RNA-seq reads
       eqclassesFileName = vm["eqclasses"].as<string>();
       hasEqclasses = true;
     }
+    if (vm.count("genome")) {
+      genomeFileName = vm["genome"].as<string>();
+      hasGenome = true;
+    }
+    if (vm.count("gff3")) {
+      txpGff3FileName = vm["gff3"].as<string>();
+      hasgff3 = true;
+    }
 
     if ( !hasAlignments and !hasEqclasses ) {
       fmt::print(stderr, "salmon requires at least one alignment input\n"
                  "Neither alignments (BAM) nor eqclasses given as input. \n");
+      std::exit(1);
+    }
+    if ( !hasGenome )
+    {
+      fmt::print(stderr, "salmon requires genome FASTA file to create nascentRNA\n"
+                 "No genome FASTA file given. \n");
+      std::exit(1);
+    }
+    if ( !hasgff3 )
+    {
+      fmt::print(stderr, "salmon requires transcript.gff3 file to create nascentRNA\n"
+                 "No .gff3 file given. \n");
       std::exit(1);
     }
 
@@ -1798,9 +1822,20 @@ transcript abundance from RNA-seq reads
     }
     // ==== END: Library format processing ===
 
+
+    std::string txpFastaFileName = vm["targets"].as<std::string>();
+    std::string outputGeneGff3FileName("gene.gff3");
+    std::string outputGeneTxpFastaFileName("genetxp.fa");
+    GeneFileGenerator gen_gene(genomeFileName, txpGff3FileName, txpFastaFileName, outputGeneGff3FileName, outputGeneTxpFastaFileName);
+
+
     // The transcript file contains the target sequences
     bfs::path transcriptFile;
-    if (hasAlignments) { transcriptFile = vm["targets"].as<std::string>(); }
+    if (hasAlignments) 
+    { 
+        // transcriptFile = vm["targets"].as<std::string>(); //BYAUTHOR
+        transcriptFile = outputGeneTxpFastaFileName;
+    }
 
     // Currently, one thread is used for parsing the alignment file.
     // Hopefully, in the future, samtools will implemented multi-threaded

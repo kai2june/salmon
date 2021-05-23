@@ -35,6 +35,10 @@ namespace salmon {
        "while setting it to 1 says that alignments that disagree with the "
        "library type are no "
        "less likely than those that do")
+      ("genome,c", po::value<string>(),
+       "One FASTA file that contains all chromosomes.")
+      ("gff3,3", po::value<string>(),
+       "transcript.gff3 file used to generate nascent.")
       ("geneMap,g", po::value<string>(),
        "File containing a mapping of transcripts to genes.  If this file is "
        "provided "
