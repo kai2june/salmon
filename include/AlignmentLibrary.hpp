@@ -33,6 +33,7 @@ extern "C" {
 #include "parallel_hashmap/phmap.h"
 
 #include "FragmentCoverageDistribution.hpp"
+#include "GeneFileGenerator.hpp"
 
 // Boost includes
 #include <boost/filesystem.hpp>
@@ -57,7 +58,7 @@ template <typename FragT, typename EQBuilderT> class AlignmentLibrary {
 public:
   AlignmentLibrary(std::vector<boost::filesystem::path>& alnFiles,
                    const boost::filesystem::path& transcriptFile,
-                   LibraryFormat libFmt, SalmonOpts& salmonOpts)
+                   LibraryFormat libFmt, SalmonOpts& salmonOpts, GeneFileGenerator* gen_gene=nullptr)
       : alignmentFiles_(alnFiles), transcriptFile_(transcriptFile),
         libFmt_(libFmt), transcripts_(std::vector<Transcript>()),
         fragStartDists_(5), posBiasFW_(5), posBiasRC_(5), posBiasExpectFW_(5),
@@ -161,6 +162,19 @@ public:
       transcripts_.emplace_back(i, header->ref[i].name, header->ref[i].len,
                                 alpha);
     }
+    
+    if( gen_gene != nullptr )
+    {
+        auto gene_info = gen_gene->getGeneInfo();
+        for (decltype(header->nref) i = 0; i < gene_info.size(); ++i)
+        {
+            transcripts_.emplace_back(i + header->nref, 
+                                      gene_info[i].geneName.c_str(), 
+                                      gene_info[i].end - gene_info[i].start + 1, 
+                                      alpha);
+        }
+    }
+
 
     FASTAParser fp(transcriptFile.string());
 

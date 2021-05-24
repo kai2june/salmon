@@ -1822,7 +1822,7 @@ transcript abundance from RNA-seq reads
     }
     // ==== END: Library format processing ===
 
-
+    /// @brief generate nascentRNA
     std::string txpFastaFileName = vm["targets"].as<std::string>();
     std::string outputGeneGff3FileName("gene.gff3");
     std::string outputGeneTxpFastaFileName("genetxp.fa");
@@ -1948,7 +1948,7 @@ transcript abundance from RNA-seq reads
       }
 
       AlignmentLibraryT<ReadPair> alnLib(alignmentFiles, transcriptFile, libFmt,
-                                        sopt);
+                                        sopt, &gen_gene);
       if (autoDetectFmt) {
         alnLib.enableAutodetect();
       }

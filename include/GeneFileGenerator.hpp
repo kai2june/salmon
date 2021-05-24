@@ -148,7 +148,7 @@ class GeneFileGenerator
         }
         ifs_genome.close();
 
-        std::vector<GeneInfo> gene_info;
+        // std::vector<GeneInfo> gene_info;
         std::ifstream ifs_geneMap(outputGeneGff3FileName);
         while (std::getline(ifs_geneMap, line))
         {
@@ -162,21 +162,21 @@ class GeneFileGenerator
             if( ll[8].find("ID=", 0, 3) == std::string::npos )
                 throw std::runtime_error("gff3 record should contain ID!!!");
 
-            gene_info.emplace_back(GeneInfo{});
-            gene_info.back().chromosomeName = ll[0];
-            gene_info.back().start = stoi(ll[3]);
-            gene_info.back().end = stoi(ll[4]);
+            gene_info_.emplace_back(GeneInfo{});
+            gene_info_.back().chromosomeName = ll[0];
+            gene_info_.back().start = stoi(ll[3]);
+            gene_info_.back().end = stoi(ll[4]);
             std::vector<std::string> ids;
             split(ll[8], ids, ';');
             for(auto elem : ids)
                 if (elem.find("ID=", 0, 3) != std::string::npos)
                 {
-                    gene_info.back().geneName = elem.substr(3);
+                    gene_info_.back().geneName = elem.substr(3);
                     break;
                 }
         }
         ifs_geneMap.close();
-        // for (auto elem : gene_info)
+        // for (auto elem : gene_info_)
         //     std::cerr << "chrname=" << elem.chromosomeName << " start=" << elem.start << " end=" << elem.end << " genename=" << elem.geneName << std::endl;
 
         std::ofstream ofs_fasta(outputGeneTxpFastaFileName, std::ios::app);
@@ -185,7 +185,7 @@ class GeneFileGenerator
         {
             ofs_fasta << line << "\n";
         }
-        for(const auto& elem : gene_info)
+        for(const auto& elem : gene_info_)
         {
             ofs_fasta << ">" << elem.geneName;
             std::string s(genome[elem.chromosomeName].substr(elem.start-1, elem.end-elem.start+1));
@@ -223,4 +223,12 @@ class GeneFileGenerator
         int32_t start;
         int32_t end;
     };
+
+    std::vector<GeneInfo> gene_info_;
+    
+  public:
+    std::vector<GeneInfo> getGeneInfo() const
+    {
+        return gene_info_;
+    } 
 };
