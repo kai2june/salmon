@@ -179,7 +179,7 @@ class GeneFileGenerator
         // for (auto elem : gene_info_)
         //     std::cerr << "chrname=" << elem.chromosomeName << " start=" << elem.start << " end=" << elem.end << " genename=" << elem.geneName << std::endl;
 
-        std::ofstream ofs_fasta(outputGeneTxpFastaFileName, std::ios::app);
+        std::ofstream ofs_fasta(outputGeneTxpFastaFileName, std::ios::out);
         std::ifstream ifs_txp(txpFastaFileName);
         while(std::getline(ifs_txp, line))
         {
