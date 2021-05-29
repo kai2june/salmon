@@ -102,6 +102,13 @@ std::vector<double> populatePriorAlphas_(
       priorAlphas[i] = priorValue * effLens(i); /// @brief perNucleotide的prior比perTranscript大[長度]倍
     }
   }
+
+//   for (size_t i(0); i<transcripts.size(); ++i)
+//   {
+//     double uniqueCount = static_cast<double>(transcripts[i].uniqueCount() + 0.5);
+//     priorAlphas[i] *= uniqueCount;
+//   }
+
   return priorAlphas;
 }
 
@@ -313,13 +320,14 @@ template <typename EQVecT>
 void EMUpdate_(EQVecT& eqVec,
                std::vector<double>& priorAlphas,
                const CollapsedEMOptimizer::VecType& alphaIn,
-               CollapsedEMOptimizer::VecType& alphaOut) {
+               CollapsedEMOptimizer::VecType& alphaOut,
+               std::vector<double>& multimappedFrac) {
 
   assert(alphaIn.size() == alphaOut.size());
 
   tbb::parallel_for(
       BlockedIndexRange(size_t(0), size_t(eqVec.size())),
-      [&eqVec, &priorAlphas, &alphaIn, &alphaOut](const BlockedIndexRange& range) -> void {
+      [&eqVec, &priorAlphas, &alphaIn, &alphaOut, &multimappedFrac](const BlockedIndexRange& range) -> void {
         for (auto eqID : boost::irange(range.begin(), range.end())) {
           auto& kv = eqVec[eqID];
 
@@ -367,7 +375,7 @@ for (size_t i = 0; i < groupSize; ++i) {
 // if (tid == 31745) std::cerr << "old_alphaIn[FBtr0300834]: " << alphaIn[tid] << " old_alphaOut[FBtr0300834]" << alphaOut[tid] << " v*invDenom[FBtr0300834]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
 // if (tid == 15301) std::cerr << "old_alphaIn[FBtr0299940]: " << alphaIn[tid] << " old_alphaOut[FBtr0299940]" << alphaOut[tid] << " v*invDenom[FBtr0299940]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
 // if (tid == 15302) std::cerr << "old_alphaIn[FBtr0299941]: " << alphaIn[tid] << " old_alphaOut[FBtr0299941]" << alphaOut[tid] << " v*invDenom[FBtr0299941]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
-                    salmon::utils::incLoop(alphaOut[tid], v * invDenom);
+                    salmon::utils::incLoop(alphaOut[tid], v * invDenom * multimappedFrac[tid]);
 // if (tid == 31744) std::cerr << "alphaOut[FBtr0300835]: " << alphaOut[tid] << std::endl;
 // if (tid == 31745) std::cerr << "alphaOut[FBtr0300834]: " << alphaOut[tid] << std::endl;
 // if (tid == 15301) std::cerr << "alphaOut[FBtr0299940]: " << alphaOut[tid] << std::endl;
@@ -381,7 +389,7 @@ auto tid = txps[txps.front()];
 // if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
 // if (tid == 11821) std::cerr << "old_alphaIn[FBtr0086273]: " << alphaIn[tid] << " count: " << count << std::endl;
 // if (tid == 11822) std::cerr << "old_alphaIn[FBtr0086274]: " << alphaIn[tid] << " count: " << count << std::endl;
-              salmon::utils::incLoop(alphaOut[txps.front()], count);
+              salmon::utils::incLoop(alphaOut[txps.front()], count * multimappedFrac[txps.front()]);
 // if (tid == 11821) std::cerr << "alphaOut[FBtr0086273]: " << alphaOut[tid] << std::endl;
 // if (tid == 11822) std::cerr << "alphaOut[FBtr0086274]: " << alphaOut[tid] << std::endl;
             }
@@ -402,7 +410,8 @@ void VBEMUpdate_(EQVecT& eqVec,
                  std::vector<double>& priorAlphas, 
                  const CollapsedEMOptimizer::VecType& alphaIn,
                  CollapsedEMOptimizer::VecType& alphaOut,
-                 CollapsedEMOptimizer::VecType& expTheta) {
+                 CollapsedEMOptimizer::VecType& expTheta,
+                 std::vector<double>& multimappedFrac) {
 
 
   assert(alphaIn.size() == alphaOut.size());
@@ -437,7 +446,7 @@ void VBEMUpdate_(EQVecT& eqVec,
   tbb::parallel_for(
       BlockedIndexRange(size_t(0), size_t(eqVec.size())),
       [&eqVec, &alphaIn, &alphaOut,
-       &expTheta](const BlockedIndexRange& range) -> void {
+       &expTheta, &multimappedFrac](const BlockedIndexRange& range) -> void {
         for (auto eqID : boost::irange(range.begin(), range.end())) {
           auto& kv = eqVec[eqID];
 
@@ -472,13 +481,14 @@ void VBEMUpdate_(EQVecT& eqVec,
                 for (size_t i = 0; i < groupSize; ++i) {
                   auto tid = txps[i];
                   auto aux = auxs[i];
+                  
                   if (expTheta[tid] > 0.0) {
                     double v = expTheta[tid] * aux;
 // if (tid == 15299) std::cerr << "old_alphaIn[FBtr0091710]:" << alphaIn[tid] << " old_alphaOut[FBtr0091710]" << alphaOut[tid] << " v*invDenom[FBtr0091710]:" << v*invDenom << " combinedWeights:" << aux << " count:" << count << std::endl;
 // if (tid == 15300) std::cerr << "old_alphaIn[FBtr0091711]:" << alphaIn[tid] << " old_alphaOut[FBtr0091711]" << alphaOut[tid] << " v*invDenom[FBtr0091711]:" << v*invDenom << " combinedWeights:" << aux << " count:" << count << std::endl;
 // if (tid == 15301) std::cerr << "old_alphaIn[FBtr0299940]: " << alphaIn[tid] << " old_alphaOut[FBtr0299940]" << alphaOut[tid] << " v*invDenom[FBtr0299940]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
 // if (tid == 15302) std::cerr << "old_alphaIn[FBtr0299941]: " << alphaIn[tid] << " old_alphaOut[FBtr0299941]" << alphaOut[tid] << " v*invDenom[FBtr0299941]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
-                    salmon::utils::incLoop(alphaOut[tid], v * invDenom);
+                    salmon::utils::incLoop(alphaOut[tid], v * invDenom * multimappedFrac[tid]);
 // if (tid == 15299) std::cerr << "alphaOut[FBtr0091710]:" << alphaOut[tid] << std::endl;
 // if (tid == 15300) std::cerr << "alphaOut[FBtr0091711]:" << alphaOut[tid] << std::endl;
 // if (tid == 15301) std::cerr << "alphaOut[FBtr0299940]: " << alphaOut[tid] << std::endl;
@@ -493,7 +503,7 @@ void VBEMUpdate_(EQVecT& eqVec,
 // if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
 // if (tid == 11821) std::cerr << "old_alphaIn[FBtr0086273]: " << alphaIn[tid] << " count: " << count << std::endl;
 // if (tid == 11822) std::cerr << "old_alphaIn[FBtr0086274]: " << alphaIn[tid] << " count: " << count << std::endl;
-              salmon::utils::incLoop(alphaOut[txps.front()], count);
+              salmon::utils::incLoop(alphaOut[txps.front()], count * multimappedFrac[txps.front()]);
 // if (tid == 11821) std::cerr << "alphaOut[FBtr0086273]: " << alphaOut[tid] << std::endl;
 // if (tid == 11822) std::cerr << "alphaOut[FBtr0086274]: " << alphaOut[tid] << std::endl;
             }
@@ -919,6 +929,15 @@ bool CollapsedEMOptimizer::optimize(ExpT& readExp, SalmonOpts& sopt,
   // <-- deprecated in TBB --> tbb::task_scheduler_init tbbScheduler(sopt.numThreads);
   tbb::global_control c(tbb::global_control::max_allowed_parallelism, sopt.numThreads);
   std::vector<Transcript>& transcripts = readExp.transcripts();
+std::vector<double> multimappedFrac(transcripts.size(), 1.0);
+// for (size_t i(0); i<transcripts.size(); ++i)
+// {
+//     std::cerr << transcripts[i].multimappedCount() << std::endl;
+//     if (transcripts[i].multimappedCount() == 0)
+//         multimappedFrac[i] = 1.0;
+//     else
+//         multimappedFrac[i] = (double)transcripts[i].totalCount() / (double)transcripts[i].multimappedCount();
+// } 
   std::vector<bool> available(transcripts.size(), false);
 
   // An EM termination criterion, adopted from Bray et al. 2016
@@ -1150,7 +1169,7 @@ while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
 
     if (useVBEM) {
       VBEMUpdate_(eqVec, priorAlphas, alphas,
-                  alphasPrime, expTheta);
+                  alphasPrime, expTheta, multimappedFrac);
     } else {
       /*
       if (itNum > 0 and (itNum % 250 == 0)) {
@@ -1164,7 +1183,7 @@ while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
       /// @brief priorAlphas : 0.01
       /// @brief 上面修改alphas是一定比例projectedCount+一定比例uniqueCount
       /// @brief alphasPrime : 1.0
-      EMUpdate_(eqVec, priorAlphas, alphas, alphasPrime);
+      EMUpdate_(eqVec, priorAlphas, alphas, alphasPrime, multimappedFrac);
     }
 
     /// @brief 這個for是論文equation 12

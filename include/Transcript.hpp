@@ -41,6 +41,7 @@ public:
         logPerBasePrior_(salmon::math::LOG_0), priorMass_(salmon::math::LOG_0),
         mass_(salmon::math::LOG_0), sharedCount_(0.0),
         avgMassBias_(salmon::math::LOG_0), active_(false), skipBiasCorrection_(false) {
+    multimappedCount_.store(0);
     uniqueCount_.store(0);
     totalCount_.store(0); // thanks @come-raczy
     cachedEffectiveLength_.store(salmon::math::LOG_0);
@@ -51,6 +52,7 @@ public:
         EffectiveLength(-1.0), id(idIn), logPerBasePrior_(std::log(alpha)),
         priorMass_(std::log(alpha * len)), mass_(salmon::math::LOG_0),
         sharedCount_(0.0), avgMassBias_(salmon::math::LOG_0), active_(false), skipBiasCorrection_(false) {
+    multimappedCount_.store(0);
     uniqueCount_.store(0);
     totalCount_.store(0); // thanks @come-raczy
     cachedEffectiveLength_.store(std::log(static_cast<double>(RefLength)));
@@ -61,6 +63,7 @@ public:
       EffectiveLength(len), id(idIn), logPerBasePrior_(std::log(alpha)),
       priorMass_(std::log(alpha * len)), mass_(salmon::math::LOG_0),
       sharedCount_(0.0), avgMassBias_(salmon::math::LOG_0), active_(false), skipBiasCorrection_(false) {
+    multimappedCount_.store(0);
     uniqueCount_.store(0);
     totalCount_.store(0); // thanks @come-raczy
     cachedEffectiveLength_.store(std::log(len));
@@ -87,6 +90,7 @@ public:
     gcBitArray_ = std::move(other.gcBitArray_);
     gcRank_ = std::move(other.gcRank_);
 
+    multimappedCount_.store(other.multimappedCount_);
     uniqueCount_.store(other.uniqueCount_);
     totalCount_.store(other.totalCount_.load());
     sharedCount_.store(other.sharedCount_.load());
@@ -118,6 +122,7 @@ public:
     gcBitArray_ = std::move(other.gcBitArray_);
     gcRank_ = std::move(other.gcRank_);
 
+    multimappedCount_.store(other.multimappedCount_);
     uniqueCount_.store(other.uniqueCount_);
     totalCount_.store(other.totalCount_.load());
     sharedCount_.store(other.sharedCount_.load());
@@ -135,9 +140,11 @@ public:
   }
 
   inline double sharedCount() { return sharedCount_.load(); }
+  inline size_t multimappedCount() { return multimappedCount_.load(); }
   inline size_t uniqueCount() { return uniqueCount_.load(); }
   inline size_t totalCount() { return totalCount_.load(); }
 
+  inline void addMultimappedCount(size_t newCount) { multimappedCount_ += newCount; }
   inline void addUniqueCount(size_t newCount) { uniqueCount_ += newCount; }
   inline void addTotalCount(size_t newCount) { totalCount_ += newCount; }
 
@@ -673,6 +680,9 @@ private:
   std::unique_ptr<const char, void (*)(const char*)> Sequence_ =
       std::unique_ptr<const char, void (*)(const char*)>(nullptr,
                                                          [](const char*) {});
+
+  /// @brief records count in all aligned alnGroup
+  std::atomic<size_t> multimappedCount_;
 
   std::atomic<size_t> uniqueCount_;
   std::atomic<size_t> totalCount_;

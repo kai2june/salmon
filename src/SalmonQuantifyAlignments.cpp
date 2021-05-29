@@ -331,7 +331,9 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
         // Iterate over each group of alignments (a group consists of all
         // alignments reported for a single read).  Distribute the read's mass
         // proportionally dependent on the current
+
 for (auto& alnGroup : alignmentGroups) {
+
           pmfCache.increment_generation();
           cmfCache.increment_generation();
 
@@ -385,6 +387,9 @@ for (auto& alnGroup : alignmentGroups) {
 for (auto& aln : alnGroup->alignments()) {
             auto transcriptID = aln->transcriptID();
             auto& transcript = refs[transcriptID];
+
+transcript.addMultimappedCount(alnGroup->alignments().size());
+
             transcriptUnique =
                 transcriptUnique and (transcriptID == firstTranscriptID);
 
