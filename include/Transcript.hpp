@@ -246,12 +246,27 @@ public:
     uint32_t mval = maxVal;
     size_t clen = minVal;
     size_t maxLen = std::min(RefLength, mval);
-    while (clen <= maxLen) {
-      size_t i = clen - minVal;
-      effectiveLength = salmon::math::logAdd(
-          effectiveLength, logPMF[i] + std::log(refLen - clen + 1));
-      ++clen;
+/// @brief BY AUTHOR
+// while (clen <= maxLen) {
+//   size_t i = clen - minVal;
+//   effectiveLength = salmon::math::logAdd(
+//       effectiveLength, logPMF[i] + std::log(refLen - clen + 1));
+//   ++clen;
+// }
+    /// @brief BY JIMMY
+    size_t polyAlen = 125;
+    while (clen <= maxLen + polyAlen)
+    {
+        size_t i = clen - minVal;
+        effectiveLength = salmon::math::logAdd(
+            effectiveLength, 
+            logPMF[i] + std::min(std::log(refLen + polyAlen - clen + 1 ), std::log(refLen))
+        );
+        ++clen;
     }
+
+
+/// @brief BY AUTHOR
     if (salmon::math::isLog0(effectiveLength) or
         std::exp(effectiveLength) < 1.0) {
       effectiveLength = logRefLength;
