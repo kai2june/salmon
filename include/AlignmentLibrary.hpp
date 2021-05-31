@@ -229,6 +229,14 @@ for (auto& txp : transcripts_) {
                                                  fragLenStd, fragLenKernelN,
                                                  fragLenKernelP, 1));
 
+    /// @brief read length distribution
+    double maxReadLen = 200;
+    double meanReadLen = 100;
+    double readLenStd = 20;
+    rlDist_ = std::make_unique<FragmentLengthDistribution>(1.0, maxReadLen, meanReadLen,
+                                                           readLenStd, fragLenKernelN,
+                                                           fragLenKernelP, 1);  
+
     /// @brief fragment coverage distribution
     fcDist_ = std::make_unique<FragmentCoverageDistribution>(100);
 
@@ -314,6 +322,14 @@ for (auto& txp : transcripts_) {
     flDist_.reset(new FragmentLengthDistribution(1.0, maxFragLen, meanFragLen,
                                                  fragLenStd, fragLenKernelN,
                                                  fragLenKernelP, 1));
+
+    /// @brief read length distribution
+    size_t maxReadLen = 200;
+    double meanReadLen = 100;
+    double readLenStd = 20;
+    rlDist_ = std::make_unique<FragmentLengthDistribution>(1.0, maxReadLen, meanReadLen,
+                                                           readLenStd, fragLenKernelN,
+                                                           fragLenKernelP, 1);  
 
     /// @brief fragment coverage distribution
     fcDist_ = std::make_unique<FragmentCoverageDistribution>(100);
@@ -412,6 +428,10 @@ for (auto& txp : transcripts_) {
 
   inline FragmentLengthDistribution* fragmentLengthDistribution() const {
     return flDist_.get();
+  }
+
+  inline FragmentLengthDistribution* readLengthDistribution() const {
+    return rlDist_.get();
   }
 
   inline FragmentCoverageDistribution* fragmentCoverageDistribution() const
@@ -674,6 +694,8 @@ private:
    *
    */
   std::unique_ptr<FragmentLengthDistribution> flDist_;
+
+  std::unique_ptr<FragmentLengthDistribution> rlDist_;
   /**
    *  The emperical fragment coverage distribution
    * 

@@ -197,6 +197,7 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
       alnLib.fragmentStartPositionDistributions();
 
   auto& fragLengthDist = *(alnLib.fragmentLengthDistribution());
+  auto& readLengthDist = *(alnLib.readLengthDistribution());
   auto& fragCovDist = *(alnLib.fragmentCoverageDistribution());
   auto& alnMod = alnLib.alignmentModel();
 
@@ -220,11 +221,16 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
   distribution_utils::LogCMFCache logCMFCache(&fragLengthDist, singleEndLib);
 
   const size_t maxCacheLen{salmonOpts.fragLenDistMax};
+  const size_t maxCacheLen_read{200};
   // Caches to avoid fld updates _within_ the set of alignments of a fragment 
   auto fetchPMF = [&fragLengthDist](size_t l) -> double { return fragLengthDist.pmf(l); };
   auto fetchCMF = [&fragLengthDist](size_t l) -> double { return fragLengthDist.cmf(l); };
+  auto fetchPMF_read = [&readLengthDist](size_t l) -> double { return readLengthDist.pmf(l); };
+  auto fetchCMF_read = [&readLengthDist](size_t l) -> double { return readLengthDist.cmf(l); };
   distribution_utils::IndexedVersionedCache<double> pmfCache(maxCacheLen);
   distribution_utils::IndexedVersionedCache<double> cmfCache(maxCacheLen);
+  distribution_utils::IndexedVersionedCache<double> pmfCache_read(maxCacheLen_read);
+  distribution_utils::IndexedVersionedCache<double> cmfCache_read(maxCacheLen_read);
   
   std::chrono::microseconds sleepTime(1);
   MiniBatchInfo<AlignmentGroup<FragT*>>* miniBatch = nullptr;
@@ -336,6 +342,8 @@ for (auto& alnGroup : alignmentGroups) {
 
           pmfCache.increment_generation();
           cmfCache.increment_generation();
+          pmfCache_read.increment_generation();
+          cmfCache_read.increment_generation();
 
           // EQCLASS
           std::vector<uint32_t> txpIDs;
@@ -396,6 +404,8 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
             double refLength =
                 transcript.RefLength > 0 ? transcript.RefLength : 1.0;
             auto flen = aln->fragLen();
+            auto read1Len = aln->readLen();
+            auto read2Len = aln->mateLen();
             // If we have a properly-paired read then use the "pedantic"
             // definition here.
             if (aln->isPaired() and aln->isInward()) {
@@ -404,6 +414,8 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
 
             // The probability of drawing a fragment of this length;
             double logFragProb = LOG_1;
+            double logRead1Prob = LOG_1;
+            double logRead2Prob = LOG_1;
             // if we are modeling fragment probabilities for single-end mappings
             // and this is either a single-end library or an orphan.
             if (modelSingleFragProb and useFragLengthDist and (singleEndLib or isUnexpectedOrphan(aln, expectedLibraryFormat))) {
@@ -423,29 +435,30 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
               
               size_t fl = flen;
               double lenProb = pmfCache.get_or_update(fl, fetchPMF); /// @brief pmfCache也是log space只是名字取的不好
+              double lenProb_read1 = pmfCache_read.get_or_update(read1Len, fetchPMF_read);
+              double lenProb_read2 = pmfCache_read.get_or_update(read2Len, fetchPMF_read);
 
               /// @brief burnedIn表aux model都更新完成, 參數值不會再變
               if (burnedIn) {
                 /* condition fragment length prob on txp length */
                 size_t rlen = static_cast<size_t>(refLength);
                 double refLengthCM = cmfCache.get_or_update(rlen, fetchCMF); /// @brief cmfCache也是log space只是名字取的不好
+                double fragLengthCM = cmfCache_read.get_or_update(fl, fetchCMF_read);
 
                 /// @brief 基本上都會computeMass, 因為read length通常短於txp length
                 bool computeMass = 
-                    fl < refLength and !salmon::math::isLog0(refLengthCM); 
+                    fl < refLength and !salmon::math::isLog0(refLengthCM);
+                bool computeMass_read1 = 
+                    read1Len < fl and !salmon::math::isLog0(fragLengthCM);
+                bool computeMass_read2 = 
+                    read2Len < fl and !salmon::math::isLog0(fragLengthCM);
                 /// @brief 例如uniform dist, 若transciript越短則logFragProb越高
                 logFragProb = (computeMass) ? (lenProb - refLengthCM)
-                                            : salmon::math::LOG_EPSILON; 
-// if(transcriptID == 31744)
-// {
-//     std::cerr << "transcriptID:" << transcriptID << " logFragProb:" << logFragProb << " lenProb:" << lenProb << " refLengthCM:" << refLengthCM << std::endl;
-//     // fragvec.emplace_back(logFragProb); fragvec.emplace_back(lenProb); fragvec.emplace_back(refLengthCM);
-// }
-// else if(transcriptID == 31745)
-// {
-//     std::cerr << "transcriptID:" << transcriptID << " logFragProb:" << logFragProb << " lenProb:" << lenProb << " refLengthCM:" << refLengthCM << std::endl;
-//     // fragvec_two.emplace_back(logFragProb); fragvec_two.emplace_back(lenProb); fragvec_two.emplace_back(refLengthCM);
-// }
+                                            : salmon::math::LOG_EPSILON;
+                logRead1Prob = (computeMass_read1) ? (lenProb_read1 - fragLengthCM)
+                                                   : salmon::math::LOG_EPSILON;
+                logRead2Prob = (computeMass_read2) ? (lenProb_read2 - fragLengthCM)
+                                                   : salmon::math::LOG_EPSILON;
                 if (computeMass and refLengthCM < lenProb) {
                   // Threading is hard!  It's possible that an update to the PMF
                   // snuck in between when we asked to cache the CMF and when
@@ -456,8 +469,22 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
                             refLength, std::exp(refLengthCM), aln->fragLen(),
                             std::exp(lenProb));  
                 }
+                if (computeMass_read1 and fragLengthCM < lenProb_read1) {
+                  log->info("fragLength = {}, CMF[fragLen] = {}, read1Len "
+                            "= {}, PMF[read1Len] = {}",
+                            flen, std::exp(fragLengthCM), aln->readLen(),
+                            std::exp(lenProb_read1));  
+                }
+                if (computeMass_read2 and fragLengthCM < lenProb_read2) {
+                  log->info("fragLength = {}, CMF[fragLen] = {}, read2Len "
+                            "= {}, PMF[read2Len] = {}",
+                            flen, std::exp(fragLengthCM), aln->mateLen(),
+                            std::exp(lenProb_read2));  
+                }
               } else if (useAuxParams) {
                 logFragProb = lenProb;
+                logRead1Prob = lenProb_read1;
+                logRead2Prob = lenProb_read2;
               }
             }
 
@@ -575,8 +602,16 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
 
             // The auxProb does *not* account for the start position
             // probability!
-            double auxProb = logFragProb + errLike + logAlignCompatProb; /// @brief Pr(l) + Pr(a) + Pr(o)
-// std::cerr << "logFragProb=" << logFragProb << ",errLike=" << errLike << ",logAlignCompatProb=" << logAlignCompatProb << ",logFragCovProb=" << logFragCovProb << std::endl; 
+            double auxProb = logFragProb + errLike + logAlignCompatProb + logRead1Prob + logRead2Prob; /// @brief Pr(l) + Pr(a) + Pr(o)
+// std::cerr << "logFragProb=" << logFragProb 
+//           << ",errLike=" << errLike 
+//           << ",logAlignCompatProb=" << logAlignCompatProb 
+//           << ",logFragCovProb=" << logFragCovProb 
+//           << ",logRead1Prob=" << logRead1Prob
+//           << ",read1Len=" << read1Len
+//           << ",logRead2Prob=" << logRead2Prob
+//           << ",read2Len=" << read2Len
+//           << std::endl; 
             // The overall mass of this transcript, which is used to
             // account for this transcript's relaive abundance
             /// @brief 初始化比較特別的地方, 感覺是這邊, 越早observed會疊越多logForgettingMass
@@ -945,6 +980,10 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
                 if (fragLength > 0) {
                   fragLengthDist.addVal(fragLength, logForgettingMass);
                 }
+                if (aln->readLen() > 0)
+                  readLengthDist.addVal(aln->readLen(), logForgettingMass);
+                if (aln->mateLen() > 0)
+                  readLengthDist.addVal(aln->mateLen(), logForgettingMass);
               }
               // update fragment coverage distribution
               int32_t fragLen = aln->fragLen();
@@ -1037,6 +1076,7 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
         // thread will set burnedIn to true
         alnLib.updateTranscriptLengthsAtomic(burnedIn); /// @brief 更新每條transcript的effective length
         fragLengthDist.cacheCMF();
+        readLengthDist.cacheCMF();
       }
       if (zeroProbFrags > 0) {
         maxZeroFrac =
@@ -1417,6 +1457,7 @@ bool processSample(AlignmentLibraryT<ReadT>& alnLib, size_t requiredObservations
     // if this is a single-end library, then the fld won't change
     if (!alnLib.isPairedEnd()) {
       alnLib.fragmentLengthDistribution()->cacheCMF(); /// @brief 把各長度fragment_bin.mass轉成pdf再轉成cdf 
+      alnLib.readLengthDistribution()->cacheCMF();
     }
     burnedIn = quantifyLibrary<ReadT>(alnLib, requiredObservations, sopt);
   } catch (const InsufficientAssignedFragments& iaf) {
