@@ -52,7 +52,7 @@ FragmentLengthDistribution::FragmentLengthDistribution(
       }
       hist_[i].store(mass); /// @brief hist_就是observed    
       /// @brief norm_mass[458]似乎已達1.0
-std::cerr << "norm_mass=" << norm_mass << " hist_[" << i << "]=" << hist_[i].load() << std::endl;
+// std::cerr << "norm_mass=" << norm_mass << " hist_[" << i << "]=" << hist_[i].load() << std::endl;
       sum_.store(logAdd(sum_, log((double)i) + mass));
       totMass_.store(logAdd(totMass_, mass));
     }
@@ -71,7 +71,7 @@ std::cerr << "norm_mass=" << norm_mass << " hist_[" << i << "]=" << hist_[i].loa
   kernel_ = vector<double>(kernel_n + 1);
   for (size_t i = 0; i <= kernel_n; i++) {
     kernel_[i] = log(boost::math::pdf(binom, i));
-    std::cerr << "kernel_[" << i << "]=" << kernel_[i] << std::endl;
+    // std::cerr << "kernel_[" << i << "]=" << kernel_[i] << std::endl;
     /// @brief logarithm: -2.77259, -1.38629, -0.980829, -1.38629, -2.77259
     /// @brief {0.0625,0.25,0.375,0.25,0.0625} = {1/16, 4/16, 6/16, 4/16, 1/16}
     /// @brief 1:4:6:4:1 即帕斯卡三角形
