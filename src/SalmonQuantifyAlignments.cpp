@@ -130,7 +130,10 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
                       SalmonOpts& salmonOpts, BiasParams& observedBiasParams,
                       std::atomic<bool>& burnedIn, bool initialRound,
                       std::atomic<size_t>& processedReads) {
-
+std::atomic<size_t> all_cnt;
+all_cnt.store(0);
+std::atomic<size_t> update_cnt;
+update_cnt.store(0);
   // Seed with a real random value, if available
   #if defined(__linux) && defined(__GLIBCXX__) && __GLIBCXX__ >= 20200128
     std::random_device rd("/dev/urandom");
@@ -602,7 +605,7 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
 
             // The auxProb does *not* account for the start position
             // probability!
-            double auxProb = logFragProb + errLike + logAlignCompatProb + logRead1Prob + logRead2Prob; /// @brief Pr(l) + Pr(a) + Pr(o)
+            double auxProb = logFragProb + errLike + logAlignCompatProb; /// @brief Pr(l) + Pr(a) + Pr(o)
 // std::cerr << "logFragProb=" << logFragProb 
 //           << ",errLike=" << errLike 
 //           << ",logAlignCompatProb=" << logAlignCompatProb 
@@ -934,9 +937,12 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
               }
             }
             // END: GC-fragment bias
-
+            /// @brief BY AUTHOR
             double r = uni(eng);
+            ++all_cnt;
+            // std::cerr << "uni(eng)=" << r << ",std::exp(aln->logProb)=" << std::exp(aln->logProb) << std::endl;
             if (!burnedIn and r < std::exp(aln->logProb)) {
+                ++update_cnt;
               /**
                * Update the bias sequence-specific bias model
                **/
@@ -1092,6 +1098,7 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
               "probability fragments",
               maxZeroFrac);
   }
+  std::cerr << "all_cnt=" << all_cnt.load() << ",update_cnt=" << update_cnt.load() << std::endl;
 }
 
 /**
