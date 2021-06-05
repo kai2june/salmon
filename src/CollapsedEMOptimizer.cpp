@@ -84,6 +84,11 @@ double truncateCountVector(VecT& alphas, std::vector<double>& cutoff) {
  *  Note: effLens *must* be valid before calling this function.
  */
 /// @brief 從純量0.01展開成向量
+/// @brief 設定perXXXPrior為priorValue
+/// @brief perNucleotide的prior比perTranscript大[長度]倍
+/// @brief priorValue : default 0.01
+/// @brief priorAlphas會跟alpha一起用到, 加在一起
+/// @brief perTranscriptPrior=0.01, perNucleotidePrior=0.01*~li
 std::vector<double> populatePriorAlphas_(
     std::vector<Transcript>& transcripts, // transcripts
     Eigen::VectorXd& effLens,             // current effective length estimate
@@ -922,6 +927,144 @@ void updateEqClassWeights(
       });
 }
 
+void CollapsedEMOptimizer::initAlpha(std::vector<Transcript>& transcripts,
+                                     std::vector<std::atomic<double>>& alphas,
+                                     std::vector<std::atomic<double>>& alphasPrime,
+                                     std::vector<std::atomic<double>>& expTheta,
+                                     double& totalWeight,
+                                     Eigen::VectorXd& effLens,
+                                     bool& useEffectiveLengths,
+                                     SalmonOpts& sopt,
+                                     int64_t& numActive,
+                                     double& totalLen,
+                                     bool& metaGenomeMode,
+                                     bool& altInitMode)
+{
+    /// @brief 這個for在決定offline初值
+    for (size_t i = 0; i < transcripts.size(); ++i) {
+        auto& txp = transcripts[i];
+        /// @brief 在normalizeAlpha那邊處理完projectedCounts了
+        alphas[i] = txp.projectedCounts;
+
+        /// @brief totalWeight是所有transcript的projectedCounts總和
+        totalWeight += alphas[i];
+        effLens(i) = useEffectiveLengths
+                        ? std::exp(txp.getCachedLogEffectiveLength())
+                        : txp.RefLength;
+        if (sopt.noLengthCorrection) {
+        effLens(i) = 100.0;
+        }
+        txp.EffectiveLength = effLens(i);
+
+        double uniqueCount = static_cast<double>(txp.uniqueCount() + 0.5);
+        /// @brief initUniform會用在offline的初始化, wi是offline abundance初值
+        /// @brief 若effLens平均2500bp的話, wi約等於2.5*uniqueCount
+        auto wi = (sopt.initUniform) ? 100.0 : (uniqueCount * 1e-3 * effLens(i)); 
+        alphasPrime[i] = wi;
+        ++numActive;
+        totalLen += effLens(i);
+    }
+
+
+      // Based on the number of observed reads, use
+  // a linear combination of the online estimates
+  // and the uniform distribution.
+  /// @brief totalWeigh=sum of alphas初始值是projectedCounts
+  /// @brief numActive=transcriptome.size()
+  double uniformPrior = totalWeight / static_cast<double>(numActive);
+  double maxFrac = 0.999;
+  /// @brief 我模擬的數量(20M, 30M)通常應該是後者吧
+  /// @param numRequiredFragments : default 5千萬
+  double fracObserved = std::min(maxFrac, totalWeight / sopt.numRequiredFragments);
+// std::cerr << "totalWeight:" << totalWeight << std::endl;
+  // Above, we placed the uniformative (uniform) initalization into the
+  // alphasPrime variables.  If that's what the user requested, then copy those
+  // over to the alphas
+  if (sopt.initUniform) {
+    for (size_t i = 0; i < alphas.size(); ++i) {
+      alphas[i].store(alphasPrime[i].load());
+      alphasPrime[i] = 1.0;
+    }
+  } else { // otherwise, initialize with a linear combination of the true and
+           // uniform alphas
+    for (size_t i = 0; i < alphas.size(); ++i) {
+      /// @brief altInitMode表weigh unique mapping more while initializing, default false
+      auto uniAbund = (metaGenomeMode or altInitMode) ? alphasPrime[i].load()
+                                                      : uniformPrior; /// 所有transcript的projectedCounts總和/transcript.size()
+      /// @brief fracObserved比例的projectedCount, 配上(1-fracObserved)比例的uniqueCount
+      /// @brief e.g., 3千萬fragments的話 : 60%*projectedCounts[i] + 40%*projectedCounts總和/transcripts.size() 
+      /// @brief (總之就是另外四成 uniqueCounts[i]或projectedCounts[:]/transcripts.size())
+      alphas[i] =
+          (alphas[i] * fracObserved) + (uniAbund * (1.0 - fracObserved));
+// if (i == 11821) std::cerr << "newalphas[FBtr0086273]:" << alphas[i] << std::endl;
+// if (i == 11822) std::cerr << "newalphas[FBtr0086274]:" << alphas[i] << std::endl;
+      alphasPrime[i] = 1.0;
+    }
+  }
+}
+
+template <typename EQVecT>
+void CollapsedEMOptimizer::computeCombinedWeights(EQVecT& eqVec, 
+                                                  Eigen::VectorXd& effLens,
+                                                  bool& noRichEq,
+                                                  SalmonOpts& sopt)
+{
+    // If the user requested *not* to use "rich" equivalence classes,
+  // then wipe out all of the weight information here and simply replace
+  // the weights with the effective length terms (here, the *inverse* of
+  // the effective length).  Otherwise, multiply the existing weight terms
+  // by the effective length term.
+  /// @brief eqVec是一個equivalence class
+  tbb::parallel_for(
+      BlockedIndexRange(size_t(0), size_t(eqVec.size())),
+      [&eqVec, &effLens, noRichEq, &sopt](const BlockedIndexRange& range) -> void {
+        // For each index in the equivalence class vector
+for (auto eqID : boost::irange(range.begin(), range.end())) {
+          // The vector entry
+          auto& kv = eqVec[eqID];
+          // The label of the equivalence class
+          const TranscriptGroup& k = kv.first; /// @brief TranscriptGroup
+          // The size of the label
+          size_t classSize = kv.second.weights.size(); // k.txps.size();
+          // The weights of the label
+          auto& v = kv.second; /// @brief TranscriptValue
+
+          // Iterate over each weight and set it
+          double wsum{0.0};
+/// @brief 這個transcriptGroup當中的transcript個數
+for (size_t i = 0; i < classSize; ++i) {
+            auto tid = k.txps[i];
+            double el = effLens(tid);
+            if (el <= 1.0) {
+              el = 1.0;
+            }
+            if (noRichEq) {
+              // Keep length factor separate for the time being
+              v.weights[i] = 1.0;
+            }
+            // meaningful values.
+            auto probStartPos = 1.0 / el; 
+
+            // combined weight
+            /// @brief 用eqClassMode則eqClass內的Transcript都採同一個Pr(f_avg | ti)
+            /// @brief weights[i] 就是auxProbs[i]
+            /// @brief combinedWeights就是根據Pr(l)*Pr(a)*Pr(o)*Pr(p)
+            /// @brief 1.0/el, 所以越長的話combinedWeights越低, 難怪被長的覆蓋的短transcript會false positive
+            double wt = sopt.eqClassMode ? v.weights[i] : v.count * v.weights[i] * probStartPos;
+// if (tid == 11821) std::cerr << "combinedWeights[FBtr0086273]_initialize:" << wt << std::endl;
+// if (tid == 11822) std::cerr << "combinedWeights[FBtr0086274]_initialize:" << wt << std::endl;
+            v.combinedWeights.push_back(wt);
+            wsum += wt;
+}
+
+          double wnorm = 1.0 / wsum;
+          for (size_t i = 0; i < classSize; ++i) {
+            v.combinedWeights[i] = v.combinedWeights[i] * wnorm; /// @brief normalize到0~1
+          }
+} /// @brief for eqID in eqVec
+      });
+}
+
 template <typename ExpT>
 bool CollapsedEMOptimizer::optimize(ExpT& readExp, SalmonOpts& sopt,
                                     double relDiffTolerance, uint32_t maxIter) { ///結尾在:1079
@@ -982,132 +1125,15 @@ std::vector<double> multimappedFrac(transcripts.size(), 1.0);
   int64_t numActive{0};
   double totalWeight{0.0};
 
-/// @brief 這個for在決定offline初值
-for (size_t i = 0; i < transcripts.size(); ++i) {
-    auto& txp = transcripts[i];
-    /// @brief 在normalizeAlpha那邊處理完projectedCounts了
-    alphas[i] = txp.projectedCounts;
-
-    /// @brief totalWeight是所有transcript的projectedCounts總和
-    totalWeight += alphas[i];
-    effLens(i) = useEffectiveLengths
-                     ? std::exp(txp.getCachedLogEffectiveLength())
-                     : txp.RefLength;
-    if (sopt.noLengthCorrection) {
-      effLens(i) = 100.0;
-    }
-    txp.EffectiveLength = effLens(i);
-
-    double uniqueCount = static_cast<double>(txp.uniqueCount() + 0.5);
-    /// @brief initUniform會用在offline的初始化, wi是offline abundance初值
-    /// @brief 若effLens平均2500bp的話, wi約等於2.5*uniqueCount
-    auto wi = (sopt.initUniform) ? 100.0 : (uniqueCount * 1e-3 * effLens(i)); 
-    alphasPrime[i] = wi;
-// if (txp.id == 15299) std::cerr << "totalCounts[FBtr0091710]:" << txp.totalCounts << "uniqueCounts[FBtr0091710]:" << txp.uniqueCounts << "projectedCounts[FBtr0091710]:" << alphas[i] << "_alphasPrime[FBtr0091710]:" << alphasPrime[i] << "_uniqueCount+0.5[FBtr0091710]:" << uniqueCount << std::endl;
-// if (txp.id == 15300) std::cerr << "totalCounts[FBtr0091711]:" << txp.totalCounts << "uniqueCounts[FBtr0091711]:" << txp.uniqueCounts << "projectedCounts[FBtr0091711]:" << alphas[i] << "_alphasPrime[FBtr0091711]:" << alphasPrime[i] << "_uniqueCount+0.5[FBtr0091711]:" << uniqueCount << std::endl;
-    ++numActive;
-    totalLen += effLens(i);
-}
+  initAlpha(transcripts, alphas, alphasPrime, expTheta, 
+            totalWeight, effLens, useEffectiveLengths, sopt, numActive, totalLen, 
+            metaGenomeMode, altInitMode);
 
   // If we use VBEM, we'll need the prior parameters
-  /// @brief 設定perXXXPrior為priorValue
-  /// @brief perNucleotide的prior比perTranscript大[長度]倍
-  /// @brief priorValue : default 0.01
-  /// @brief priorAlphas會跟alpha一起用到, 加在一起
-  /// @brief perTranscriptPrior=0.01, perNucleotidePrior=0.01*~li
   std::vector<double> priorAlphas = populatePriorAlphas_(
       transcripts, effLens, priorValue, perTranscriptPrior);
 
-  // Based on the number of observed reads, use
-  // a linear combination of the online estimates
-  // and the uniform distribution.
-  /// @brief totalWeigh=sum of alphas初始值是projectedCounts
-  /// @brief numActive=transcriptome.size()
-  double uniformPrior = totalWeight / static_cast<double>(numActive);
-  double maxFrac = 0.999;
-  /// @brief 我模擬的數量(20M, 30M)通常應該是後者吧
-  /// @param numRequiredFragments : default 5千萬
-  double fracObserved = std::min(maxFrac, totalWeight / sopt.numRequiredFragments);
-// std::cerr << "totalWeight:" << totalWeight << std::endl;
-  // Above, we placed the uniformative (uniform) initalization into the
-  // alphasPrime variables.  If that's what the user requested, then copy those
-  // over to the alphas
-  if (sopt.initUniform) {
-    for (size_t i = 0; i < alphas.size(); ++i) {
-      alphas[i].store(alphasPrime[i].load());
-      alphasPrime[i] = 1.0;
-    }
-  } else { // otherwise, initialize with a linear combination of the true and
-           // uniform alphas
-    for (size_t i = 0; i < alphas.size(); ++i) {
-      /// @brief altInitMode表weigh unique mapping more while initializing, default false
-      auto uniAbund = (metaGenomeMode or altInitMode) ? alphasPrime[i].load()
-                                                      : uniformPrior; /// 所有transcript的projectedCounts總和/transcript.size()
-      /// @brief fracObserved比例的projectedCount, 配上(1-fracObserved)比例的uniqueCount
-      /// @brief e.g., 3千萬fragments的話 : 60%*projectedCounts[i] + 40%*projectedCounts總和/transcripts.size() 
-      /// @brief (總之就是另外四成 uniqueCounts[i]或projectedCounts[:]/transcripts.size())
-      alphas[i] =
-          (alphas[i] * fracObserved) + (uniAbund * (1.0 - fracObserved));
-// if (i == 11821) std::cerr << "newalphas[FBtr0086273]:" << alphas[i] << std::endl;
-// if (i == 11822) std::cerr << "newalphas[FBtr0086274]:" << alphas[i] << std::endl;
-      alphasPrime[i] = 1.0;
-    }
-  }
-
-  // If the user requested *not* to use "rich" equivalence classes,
-  // then wipe out all of the weight information here and simply replace
-  // the weights with the effective length terms (here, the *inverse* of
-  // the effective length).  Otherwise, multiply the existing weight terms
-  // by the effective length term.
-  /// @brief eqVec是processMiniBatch
-  tbb::parallel_for(
-      BlockedIndexRange(size_t(0), size_t(eqVec.size())),
-      [&eqVec, &effLens, noRichEq, &sopt](const BlockedIndexRange& range) -> void {
-        // For each index in the equivalence class vector
-for (auto eqID : boost::irange(range.begin(), range.end())) {
-          // The vector entry
-          auto& kv = eqVec[eqID];
-          // The label of the equivalence class
-          const TranscriptGroup& k = kv.first; /// @brief TranscriptGroup
-          // The size of the label
-          size_t classSize = kv.second.weights.size(); // k.txps.size();
-          // The weights of the label
-          auto& v = kv.second; /// @brief TranscriptValue
-
-          // Iterate over each weight and set it
-          double wsum{0.0};
-/// @brief 這個transcriptGroup當中的transcript個數
-for (size_t i = 0; i < classSize; ++i) {
-            auto tid = k.txps[i];
-            double el = effLens(tid);
-            if (el <= 1.0) {
-              el = 1.0;
-            }
-            if (noRichEq) {
-              // Keep length factor separate for the time being
-              v.weights[i] = 1.0;
-            }
-            // meaningful values.
-            auto probStartPos = 1.0 / el;
-
-            // combined weight
-            /// @brief 用eqClassMode則eqClass內的Transcript都採同一個Pr(f_avg | ti)
-            /// @brief weights[i] 就是auxProbs[i]
-            /// @brief combinedWeights就是根據Pr(l)*Pr(a)*Pr(o)*Pr(p)
-            /// @brief 1.0/el, 所以越長的話combinedWeights越低, 難怪被長的覆蓋的短transcript會false positive
-            double wt = sopt.eqClassMode ? v.weights[i] : v.count * v.weights[i] * probStartPos;
-// if (tid == 11821) std::cerr << "combinedWeights[FBtr0086273]_initialize:" << wt << std::endl;
-// if (tid == 11822) std::cerr << "combinedWeights[FBtr0086274]_initialize:" << wt << std::endl;
-            v.combinedWeights.push_back(wt);
-            wsum += wt;
-}
-
-          double wnorm = 1.0 / wsum;
-          for (size_t i = 0; i < classSize; ++i) {
-            v.combinedWeights[i] = v.combinedWeights[i] * wnorm; /// @brief normalize到0~1
-          }
-} /// @brief for eqID in eqVec
-      });
+  computeCombinedWeights(eqVec, effLens, noRichEq, sopt);
 
   /// @brief abundance*aux太小(1e-308)的話, 丟掉這個eqv class
   auto numRemoved =

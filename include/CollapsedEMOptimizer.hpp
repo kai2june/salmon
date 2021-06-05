@@ -19,6 +19,25 @@ public:
   using SerialVecType = std::vector<double>;
   CollapsedEMOptimizer();
 
+  void initAlpha(std::vector<Transcript>& transcripts,
+                 std::vector<std::atomic<double>>& alphas,
+                 std::vector<std::atomic<double>>& alphasPrime,
+                 std::vector<std::atomic<double>>& expTheta,
+                 double& totalWeight,
+                 Eigen::VectorXd& effLens,
+                 bool& useEffectiveLengths,
+                 SalmonOpts& sopt,
+                 int64_t& numActive,
+                 double& totalLen,
+                 bool& metaGenomeMode,
+                 bool& altInitMode);
+
+  template <typename EQVecT>
+  void computeCombinedWeights(EQVecT& eqVec, 
+                              Eigen::VectorXd& effLens,
+                              bool& noRichEq,
+                              SalmonOpts& sopt);
+
   template <typename ExpT>
   bool optimize(
       ExpT& readExp, SalmonOpts& sopt,
