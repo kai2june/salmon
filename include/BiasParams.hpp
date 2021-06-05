@@ -26,6 +26,7 @@ struct BiasParams {
   // salmon::math::LOG_0);
   GCFragModel observedGCMass;
 
+  /// @brief seqBiasFW與seqBiasRC負責搜集sampling序列
   ReadKmerDist<8, uint32_t> seqBiasFW;
   ReadKmerDist<8, uint32_t> seqBiasRC;
 

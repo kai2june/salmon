@@ -18,10 +18,12 @@ struct GCDesc {
   int32_t fragBin() { return fragFrac; }
   int32_t contextBin() { return contextFrac; }
 
+  /// @brief 因為是取floor, 所以以n-1為upper bound
   int32_t fragBin(int32_t n) {
     double w = (100.0 / n);
     return std::min(n - 1, static_cast<int32_t>(fragFrac / w));
   }
+  /// @brief context只分成0~33%, 34%~66%, 67%~100%三種bins
   int32_t contextBin(int32_t n) {
     double w = (100.0 / n);
     return std::min(n - 1, static_cast<int32_t>(contextFrac / w));
@@ -151,6 +153,7 @@ public:
     auto ctx = (condBins_ > 1) ? desc.contextBin(condBins_) : 0;
     auto frag = (numGCBins_ != 101) ? desc.fragBin(numGCBins_) : desc.fragBin();
 
+    /// @brief frag表示GC百分比, counts_(ctx, frag)表示frag%的fragment有多少條
     if (dspace_ == distribution_utils::DistributionSpace::LOG) {
       counts_(ctx, frag) = salmon::math::logAdd(counts_(ctx, frag), fragWeight);
     } else {

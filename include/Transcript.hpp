@@ -312,19 +312,24 @@ public:
     double contextSize = outsideContext + insideContext;
     int lastPos = RefLength - 1;
     if (!reduceGCMemory_) {
+      /// @brief c表示count
+      /// @brief GCCount_是Cumulative mass function
       auto cs = (s > 0) ? GCCount_[s - 1] : 0;
       auto ce = GCCount_[e];
 
+      /// @brief f表示forward, t表示template
       int fs = s - outside5p;
       int fe = s + inside5p;
       int ts = e - inside3p;
       int te = e + outside3p;
 
+      /// @brief p表示pos, t被從reverse complement轉成5'->3'的forward序列, 因此需ts>=0
       bool fpLeftExists = (fs >= 0);
       bool fpRightExists = (fe <= lastPos);
       bool tpLeftExists = (ts >= 0);
       bool tpRightExists = (te <= lastPos);
 
+      
       auto fps = (fpLeftExists) ? GCCount_[fs] : 0;
       auto fpe = (fpRightExists) ? GCCount_[fe] : ce;
       auto tps = (tpLeftExists) ? GCCount_[ts] : 0;
@@ -344,6 +349,9 @@ public:
       }
       valid = true;
 
+      /// @brief Frac皆代表GC比例
+      /// @brief fragFrac表這條fragment的GC百分比
+      /// @brief contextFrac表這條fragment的context: 5'外4內1 與 3'外3內2的鹼基 的GC百分比
       int32_t fragFrac = std::lrint((100.0 * (ce - cs)) / (e - s + 1));
       int32_t contextFrac =
           std::lrint((100.0 * (((fpe - fps) + (tpe - tps)) / (contextSize))));
@@ -637,6 +645,7 @@ private:
     if (!reduceGCMemory) {
       GCCount_.resize(RefLength, 0);
       size_t totGC{0};
+      /// @brief GCCount_是Cumulative mass function
       for (size_t i = 0; i < RefLength; ++i) {
         auto c = std::toupper(seq[i]);
         if (c == 'G' or c == 'C') {

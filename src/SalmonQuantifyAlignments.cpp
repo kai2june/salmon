@@ -130,10 +130,8 @@ void processMiniBatch(AlignmentLibraryT<FragT>& alnLib,
                       SalmonOpts& salmonOpts, BiasParams& observedBiasParams,
                       std::atomic<bool>& burnedIn, bool initialRound,
                       std::atomic<size_t>& processedReads) {
-std::atomic<size_t> all_cnt;
-all_cnt.store(0);
-std::atomic<size_t> update_cnt;
-update_cnt.store(0);
+std::atomic<size_t> all_cnt{0};
+std::atomic<size_t> update_cnt{0};
   // Seed with a real random value, if available
   #if defined(__linux) && defined(__GLIBCXX__) && __GLIBCXX__ >= 20200128
     std::random_device rd("/dev/urandom");
@@ -687,6 +685,7 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
           }
 
           // Are we doing bias correction?
+          /// @brief 一個alnGroup只會sampling一個alignment序列, 根據if success then needBiasSample = false;
           bool needBiasSample = salmonOpts.biasCorrect;
 
           // Normalize the scores
@@ -759,6 +758,9 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
                     bool read1RC = !fwd1;
                     bool read2RC = !fwd2;
 
+                    /// @brief reverse complement會轉變成foward strand的互補鹼基, 然後轉成5'->3'
+                    /// @brief libType:ISF則startPos1是paired-end的最左端, startPos2是paired-end的最右端
+                    /// @brief libType:ISR則startPos1是paired-end的最右端, startPos2是paired-end的最左端
                     if ((startPos1 >= readBias1.contextBefore(read1RC) and
                          startPos1 + readBias1.contextAfter(read1RC) <
                          static_cast<int32_t>(transcript.RefLength)) and
@@ -768,6 +770,7 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
 
                       int32_t fwPos = (fwd1) ? startPos1 : startPos2;
                       int32_t rcPos = (fwd1) ? startPos2 : startPos1;
+                      /// @brief 單純把鹼基序列讀出來
                       if (fwPos < rcPos) {
                         leftMer.fromChars(txpStart + startPos1 -
                                            readBias1.contextBefore(read1RC));
@@ -779,7 +782,7 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
                         } else {
                           rightMer.rc();
                         }
-
+                        /// @brief 把讀出的序列作為一個sample加入Bias samples
                         success = readBias1.addSequence(leftMer, 1.0);
                         success = readBias2.addSequence(rightMer, 1.0);
                       }
@@ -1076,6 +1079,7 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
         processedCache->push(miniBatch);
       }
       --activeBatches;
+
       processedReads += batchReads;
       if (processedReads >= numBurninFrags and !burnedIn) {
         // NOTE: only one thread should succeed here, and that
@@ -1092,6 +1096,11 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
 } /// @brief if (miniBatch != nullptr)
 
     miniBatch = nullptr;
+
+/*
+ ** @brief To adopt RSEM aux model updating rule, I should run EM here for every miniBatch
+ */
+
 } // nothing left to process  /// @brief while !DoneParsing 與 !workQueue.empty()
   if (maxZeroFrac > 0.0) {
     log->info("Thread saw mini-batch with a maximum of {0:.2f}\% zero "
@@ -1126,6 +1135,7 @@ bool quantifyLibrary(AlignmentLibraryT<FragT>& alnLib,
   MiniBatchQueue<AlignmentGroup<FragT*>> processedCache;
   MiniBatchQueue<AlignmentGroup<FragT*>>* processedCachePtr{nullptr};
 
+std::cerr << "salmonOpts.forgettingFactor=" << salmonOpts.forgettingFactor << std::endl;
   ForgettingMassCalculator fmCalc(salmonOpts.forgettingFactor);
 
   // Up-front, prefill the forgetting mass schedule for up to
@@ -1337,14 +1347,17 @@ while (alignmentGroupsRemain or alignments->size() > 0) {
     double globalFwdMass{salmon::math::LOG_0};
     auto& globalGCMass = alnLib.observedGC();
 for (auto& gcp : observedBiasParams) {
+      /// @brief 把local GC matrix的每個entry都加入global GC matrix
       auto& gcm = gcp.observedGCMass;
       globalGCMass.combineCounts(gcm);
 
+      /// @brief global SBModel
       auto& fw =
           alnLib.readBiasModelObserved(salmon::utils::Direction::FORWARD);
       auto& rc = alnLib.readBiasModelObserved(
           salmon::utils::Direction::REVERSE_COMPLEMENT);
 
+      /// @brief local SBModel
       auto& fwloc = gcp.seqBiasModelFW;
       auto& rcloc = gcp.seqBiasModelRC;
       fw.combineCounts(fwloc);
