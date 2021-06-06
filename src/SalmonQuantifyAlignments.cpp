@@ -1011,11 +1011,20 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
                                         updateCounts);
           } else { // or the appropriate clusters
             // ughh . . . C++ still has some very rough edges
+            /// @brief BY AUTHOR
             clusterForest.template mergeClusters<FragT>(
                 alnGroup->alignments().begin(), alnGroup->alignments().end()); /// @brief 一個fragment multimapped的transcript原本各自一個cluster, 現在併在一起
             clusterForest.updateCluster(
                 alnGroup->alignments().front()->transcriptID(), 1,
                 logForgettingMass, updateCounts); /// @brief 這條fragment分給這個cluster
+
+            // /// @brief BY JIMMY
+            // for (auto iter=alnGroup->alignments().begin(); iter!=alnGroup->alignments().end(); ++iter)
+            // {
+            //     clusterForest.updateCluster(
+            //         (*iter)->transcriptID(), 1, logForgettingMass, updateCounts
+            //     );
+            // }
           }
 
           ++batchReads;
@@ -1229,7 +1238,6 @@ std::cerr << "salmonOpts.forgettingFactor=" << salmonOpts.forgettingFactor << st
           std::ref(observedBiasParams[i]), std::ref(burnedIn), initialRound,
           std::ref(totalProcessedReads));
     }
-
     /// @brief 上面workers很多thread同時在執行
     /// @param haveCache : 第二round while執行完成之後, 若決定使用cache, 就不再parsing
     if (!haveCache) {
@@ -1298,7 +1306,6 @@ while (alignmentGroupsRemain or alignments->size() > 0) {
     }
 
     doneParsing = true;
-
     /**
      * This could be a problem for small sets of alignments --- make sure the
      * work queue is empty!!
@@ -1324,7 +1331,7 @@ while (alignmentGroupsRemain or alignments->size() > 0) {
     fmt::print(stderr, "\n\n");
 
     numObservedFragments += alnLib.numMappedFragments();
-
+std::cerr << "clusterForest.clusters_.size()=" << alnLib.clusterForest().getClusters().size() << std::endl;
     // If we don't have a sufficient number of mapped fragments, then
     // complain here!
 
@@ -1616,6 +1623,10 @@ bool processSample(AlignmentLibraryT<ReadT>& alnLib, size_t requiredObservations
             v.weights[i] = 1.0;
           }
           // meaningful values.
+          /// @brief probStartPos=1.0/el表示對於eqv class之中每個fragment count的期望起點個數, 
+          /// @brief 算aln->logProb時1.0/ (l(t) – Ir(t) + 1) 是因爲fragment one by one的看, 
+          /// @brief 而此處是整個eqv class的所有fragment一起看, 
+          /// @brief 所以用effective length代替1.0 / (l(t) – Ir(t) + 1)
           auto probStartPos = 1.0 / el;
 
           // combined weight

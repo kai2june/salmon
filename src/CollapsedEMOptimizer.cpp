@@ -1043,6 +1043,10 @@ for (size_t i = 0; i < classSize; ++i) {
               v.weights[i] = 1.0;
             }
             // meaningful values.
+            /// @brief probStartPos=1.0/el表示對於eqv class之中每個fragment count的期望起點個數, 
+            /// @brief 算aln->logProb時1.0/ (l(t) – Ir(t) + 1) 是因爲fragment one by one的看, 
+            /// @brief 而此處是整個eqv class的所有fragment一起看, 
+            /// @brief 所以用effective length代替1.0 / (l(t) – Ir(t) + 1)
             auto probStartPos = 1.0 / el; 
 
             // combined weight
