@@ -1227,6 +1227,41 @@ std::cerr << "salmonOpts.forgettingFactor=" << salmonOpts.forgettingFactor << st
         currentQuantThreads, BiasParams(salmonOpts.numConditionalGCBins,
                                         salmonOpts.numFragGCBins, false));
 
+/// @brief BY JIMMY initTranscriptGroup
+auto logger = spdlog::get("jointLog");
+logger->info("Initializing TranscriptGroup using TranscriptGeneMap");
+
+GeneFileGenerator& gen_gene = alnLib.getGenGene();
+auto& eqBuilder = alnLib.equivalenceClassBuilder();
+for (auto iter=gen_gene.genes_txps_.begin(); iter!=gen_gene.genes_txps_.end(); ++iter)
+{
+    std::vector<uint32_t> txpIDs;
+    for(auto inner_iter=iter->begin(); inner_iter!=iter->end(); ++inner_iter)
+        txpIDs.emplace_back(*inner_iter);
+    std::vector<double> auxProbs(txpIDs.size(), 0.0);
+    for(auto it=txpIDs.begin(); it!=txpIDs.end(); ++it)
+        std::cerr << (*it) << '\t';
+    for(auto it=auxProbs.begin(); it!=auxProbs.end(); ++it)
+        std::cerr << (*it) << '\t';
+    std::cerr << std::endl;
+    TranscriptGroup tg(txpIDs);
+    eqBuilder.addGroup(std::move(tg), auxProbs);
+}
+
+{
+    auto lt = eqBuilder.eqMap().lock_table();
+    for (auto& kv : lt) {
+        /// @brief normalizeAux()讓kv[:].TGValue.weights加總為1.0
+        for(auto iter=kv.first.txps.begin(); iter!=kv.first.txps.end(); ++iter)
+            std::cerr << (*iter) << '\t';
+        for(auto iter=kv.second.weights.begin(); iter!=kv.second.weights.end(); ++iter)
+            std::cerr << (*iter) << '\t';
+        std::cerr << std::endl;
+    }
+}
+/// @brief BY JIMMY END
+
+
     for (uint32_t i = 0; i < currentQuantThreads; ++i) {
       workers.emplace_back(
           processMiniBatch<FragT>, std::ref(alnLib), std::ref(fmCalc),

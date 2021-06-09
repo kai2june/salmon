@@ -249,6 +249,7 @@ inline void EquivalenceClassBuilder<TGValue>::addGroup(TranscriptGroup&& g,
       x.weights[i] += weights[i];
     }
   };
+  /// @brief 第二個參數(count=1)是pseudocount
   TGValue v(weights, 1);
   countMap_.upsert(g, upfn, v);
 }
