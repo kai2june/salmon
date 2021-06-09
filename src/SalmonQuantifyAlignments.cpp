@@ -678,10 +678,8 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
             }
             /// @brief txpIDs: [txp1, txp2, auxProbs[txp1]*rangeCount, auxProbs[txp2]*rangeCount]
             /// @brief auxProbs: [aux probability of txp1, aux probability of txp2]
-
-            TranscriptGroup tg(txpIDs); 
+            TranscriptGroup tg(txpIDs);
             eqBuilder.addGroup(std::move(tg), auxProbs);
-
           }
 
           // Are we doing bias correction?
@@ -1473,7 +1471,6 @@ for (auto& gcp : observedBiasParams) {
 template <typename ReadT>
 bool processSample(AlignmentLibraryT<ReadT>& alnLib, size_t requiredObservations,
                    SalmonOpts& sopt, boost::filesystem::path outputDirectory) {
-
   auto& jointLog = sopt.jointLog;
   // EQCLASS
   alnLib.equivalenceClassBuilder().setMaxResizeThreads(sopt.maxHashResizeThreads);
@@ -1899,11 +1896,11 @@ transcript abundance from RNA-seq reads
     }
     // ==== END: Library format processing ===
 
-    /// @brief generate nascentRNA
+    /// @brief generate nascentRNA fileName
     std::string txpFastaFileName = vm["targets"].as<std::string>();
     std::string outputGeneGff3FileName("gene.gff3");
     std::string outputGeneTxpFastaFileName("genetxp.fa");
-    GeneFileGenerator gen_gene(genomeFileName, txpGff3FileName, txpFastaFileName, outputGeneGff3FileName, outputGeneTxpFastaFileName);
+
 
 
     // The transcript file contains the target sequences
@@ -2025,7 +2022,8 @@ transcript abundance from RNA-seq reads
       }
 
       AlignmentLibraryT<ReadPair> alnLib(alignmentFiles, transcriptFile, libFmt,
-                                        sopt, &gen_gene);
+                                        sopt, genomeFileName, txpGff3FileName, txpFastaFileName, 
+                                        outputGeneGff3FileName, outputGeneTxpFastaFileName);
       if (autoDetectFmt) {
         alnLib.enableAutodetect();
       }

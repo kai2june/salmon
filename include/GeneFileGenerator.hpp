@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <map>
 #include <stdexcept>
+#include <set>
+#include <utility>
 
 class GeneFileGenerator
 {
@@ -32,6 +34,7 @@ class GeneFileGenerator
             if (line[0] == '#')
                 continue;
             
+            std::string txpName;
             if ( line.find("FBgn") != std::string::npos )
             {
                 std::vector<std::string> words;
@@ -39,8 +42,14 @@ class GeneFileGenerator
                 split(line, words);
                 split(words.back(), tags, ';');
                 for(auto iter=tags.begin(); iter!=tags.end(); ++iter)
+                {
                     if ( iter->find("geneID=") != std::string::npos )
                         found = iter->substr(iter->find("geneID=") + 7);
+                    else if ( iter->find("ID=", 0, 3) != std::string::npos )
+                        txpName = iter->substr(iter->find("ID=", 0, 3) + 3);
+                }
+                txps_genes_map_[txpName] = found;
+
                 words[2] = "exon";
                 words.back() = "Parent=" + found;
 
@@ -201,6 +210,50 @@ class GeneFileGenerator
         ifs_txp.close();
     }
 
+    void setTranscriptGeneMap(size_t txp_count, SAM_hdr* header)
+    {
+        for (size_t i = 0; i < txp_count; ++i)
+            txps_[header->ref[i].name] = i;
+        
+        for (size_t i = 0; i < gene_info_.size(); ++i)
+        {
+            genes_[gene_info_[i].geneName] = i;
+        }
+
+        txps_genes_ = std::vector<size_t>(txp_count, 0);
+        genes_txps_ = std::vector<std::vector<size_t>>(gene_info_.size());
+        for(auto elem : txps_genes_map_)
+        {
+            std::string txpName = elem.first, geneName = elem.second;
+            size_t txpID = txps_[txpName], geneID = genes_[geneName];
+            txps_genes_[txpID] = geneID;
+            genes_txps_[geneID].emplace_back(txpID);
+        }
+        for(size_t i=0; i<genes_txps_.size(); ++i)
+            std::sort(genes_txps_[i].begin(), genes_txps_[i].end());
+        printTranscriptGeneMap();
+    }
+
+    void printTranscriptGeneMap()
+    {
+        std::ofstream ofs("checkgengene.txt");
+        ofs << "txps_ " << txps_.size() << std::endl;
+        for (auto elem : txps_)
+            ofs << elem.first << " " << elem.second << std::endl;
+        ofs << "genes_ " << genes_.size() << std::endl;
+        for (auto elem : genes_)
+            ofs << elem.first << " " << elem.second << std::endl;
+        ofs << "txps_genes_ " << txps_genes_.size() << std::endl;
+        for (size_t i(0); i<txps_genes_.size(); ++i)
+            ofs << txps_genes_[i] << std::endl;
+        ofs << "genes_txps_ " << genes_txps_.size() << std::endl;
+        for (size_t i(0); i<genes_txps_.size(); ++i)
+        {
+            for (size_t j(0); j<genes_txps_[i].size(); ++j)
+                ofs << genes_txps_[i][j] << " ";
+            ofs << std::endl;
+        }
+    }
   private:
     void split(std::string line, std::vector<std::string>& ll, char delimiter=' ')
     {
@@ -225,8 +278,13 @@ class GeneFileGenerator
     };
 
     std::vector<GeneInfo> gene_info_;
-    
   public:
+    std::map<std::string, std::string> txps_genes_map_;
+    std::map<std::string, size_t> txps_;
+    std::map<std::string, size_t> genes_;
+    std::vector<size_t> txps_genes_;
+    std::vector<std::vector<size_t>> genes_txps_;
+
     std::vector<GeneInfo> getGeneInfo() const
     {
         return gene_info_;

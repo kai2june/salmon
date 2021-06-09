@@ -58,7 +58,12 @@ template <typename FragT, typename EQBuilderT> class AlignmentLibrary {
 public:
   AlignmentLibrary(std::vector<boost::filesystem::path>& alnFiles,
                    const boost::filesystem::path& transcriptFile,
-                   LibraryFormat libFmt, SalmonOpts& salmonOpts, GeneFileGenerator* gen_gene=nullptr)
+                   LibraryFormat libFmt, SalmonOpts& salmonOpts, 
+                   std::string genomeFileName="",
+                   std::string txpGff3FileName="",
+                   std::string txpFastaFileName="",
+                   std::string outputGeneGff3FileName="",
+                   std::string outputGeneTxpFastaFileName="")
       : alignmentFiles_(alnFiles), transcriptFile_(transcriptFile),
         libFmt_(libFmt), transcripts_(std::vector<Transcript>()),
         fragStartDists_(5), posBiasFW_(5), posBiasRC_(5), posBiasExpectFW_(5),
@@ -162,10 +167,21 @@ public:
       transcripts_.emplace_back(i, header->ref[i].name, header->ref[i].len,
                                 alpha);
     }
-    
-    if( gen_gene != nullptr )
+
+    if (genomeFileName.size() > 0 and 
+        txpGff3FileName.size() > 0 and
+        txpFastaFileName.size() > 0 and 
+        outputGeneGff3FileName.size() > 0 and 
+        outputGeneTxpFastaFileName.size() > 0 )
     {
-        auto gene_info = gen_gene->getGeneInfo();
+        gen_gene_ = std::make_unique<GeneFileGenerator>(genomeFileName, 
+                                                        txpGff3FileName, 
+                                                        txpFastaFileName, 
+                                                        outputGeneGff3FileName, 
+                                                        outputGeneTxpFastaFileName);
+        gen_gene_->setTranscriptGeneMap(header->nref, header);
+        
+        auto gene_info = gen_gene_->getGeneInfo();
         for (decltype(header->nref) i = 0; i < gene_info.size(); ++i)
         {
             transcripts_.emplace_back(i + header->nref, 
@@ -174,7 +190,6 @@ public:
                                       alpha);
         }
     }
-
 
     FASTAParser fp(transcriptFile.string());
 
@@ -603,6 +618,12 @@ for (auto& txp : transcripts_) {
     return salmon::utils::DuplicateTargetStatus::UNKNOWN; 
   }
 
+public:
+  GeneFileGenerator& getGenGene() 
+  {
+      return *gen_gene_.get();
+  }
+
 private:
 
   void setTranscriptLengthClasses_(std::vector<uint32_t>& lengths,
@@ -739,6 +760,8 @@ private:
 
   salmon::bam_utils::AlignerDetails aligner_{salmon::bam_utils::AlignerDetails::UNKNOWN};
   uint64_t numDecoys_{0};
+
+  std::unique_ptr<GeneFileGenerator> gen_gene_{nullptr};
 };
 
 #endif // ALIGNMENT_LIBRARY_HPP
