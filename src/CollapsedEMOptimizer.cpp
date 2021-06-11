@@ -418,7 +418,7 @@ void VBEMUpdate_(EQVecT& eqVec,
                  CollapsedEMOptimizer::VecType& expTheta,
                  std::vector<double>& multimappedFrac) {
 
-
+/// @brief 公式: digamma(alpha_i*priorAlpha_i) / Sigma{digamma(alpha_i*priorAlpha_i)} 
   assert(alphaIn.size() == alphaOut.size());
   size_t M = alphaIn.size();
   double alphaSum = {0.0};

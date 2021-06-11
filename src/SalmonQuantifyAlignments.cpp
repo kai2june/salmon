@@ -643,7 +643,7 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
                     ids.emplace_back(*iter);
                 std::map<uint32_t, double> probs;
                 for (auto iter=ids.begin(); iter!=ids.end(); ++iter)
-                    probs[*iter] = salmon::math::LOG_0;
+                    probs[*iter] = -100;
                 txpIDs_auxProbs.emplace_back(probs);
                 gene_indexes[geneID] = txpIDs_auxProbs.size() - 1;
             }
@@ -653,7 +653,7 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
 
             //   txpIDs.push_back(transcriptID);
             //   auxProbs.push_back(auxProb);
-              auxDenom = salmon::math::logAdd(auxDenom, auxProb);
+            //   auxDenom = salmon::math::logAdd(auxDenom, auxProb);
 
             } else {
               aln->logProb = LOG_0;
@@ -686,7 +686,7 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
         {
             double auxDenom = salmon::math::LOG_0;
             for(auto& elem : txpIDs_auxProbs[i])
-                auxDenom += elem.second;
+                auxDenom = salmon::math::logAdd(auxDenom, elem.second);
 
             std::vector<uint32_t> ids;
             std::vector<double> probs;
@@ -1283,37 +1283,38 @@ std::cerr << "salmonOpts.forgettingFactor=" << salmonOpts.forgettingFactor << st
                                         salmonOpts.numFragGCBins, false));
 
 /// @brief BY JIMMY initTranscriptGroup
-auto logger = spdlog::get("jointLog");
-logger->info("Initializing TranscriptGroup using TranscriptGeneMap");
+/// @brief This initialization is NOT needed.
+// auto logger = spdlog::get("jointLog");
+// logger->info("Initializing TranscriptGroup using TranscriptGeneMap");
 
-GeneFileGenerator& gen_gene = alnLib.getGenGene();
-auto& eqBuilder = alnLib.equivalenceClassBuilder();
-for (auto iter=gen_gene.genes_txps_.begin(); iter!=gen_gene.genes_txps_.end(); ++iter)
-{
-    std::vector<uint32_t> txpIDs;
-    for(auto inner_iter=iter->begin(); inner_iter!=iter->end(); ++inner_iter)
-        txpIDs.emplace_back(*inner_iter);
-    std::vector<double> auxProbs(txpIDs.size(), 0.0);
-    for(auto it=txpIDs.begin(); it!=txpIDs.end(); ++it)
-        std::cerr << (*it) << '\t';
-    for(auto it=auxProbs.begin(); it!=auxProbs.end(); ++it)
-        std::cerr << (*it) << '\t';
-    std::cerr << std::endl;
-    TranscriptGroup tg(txpIDs);
-    eqBuilder.addGroup(std::move(tg), auxProbs);
-}
+// GeneFileGenerator& gen_gene = alnLib.getGenGene();
+// auto& eqBuilder = alnLib.equivalenceClassBuilder();
+// for (auto iter=gen_gene.genes_txps_.begin(); iter!=gen_gene.genes_txps_.end(); ++iter)
+// {
+//     std::vector<uint32_t> txpIDs;
+//     for(auto inner_iter=iter->begin(); inner_iter!=iter->end(); ++inner_iter)
+//         txpIDs.emplace_back(*inner_iter);
+//     std::vector<double> auxProbs(txpIDs.size(), -100);
+//     for(auto it=txpIDs.begin(); it!=txpIDs.end(); ++it)
+//         std::cerr << (*it) << '\t';
+//     for(auto it=auxProbs.begin(); it!=auxProbs.end(); ++it)
+//         std::cerr << (*it) << '\t';
+//     std::cerr << std::endl;
+//     TranscriptGroup tg(txpIDs);
+//     eqBuilder.addGroup(std::move(tg), auxProbs);
+// }
 
-{
-    auto lt = eqBuilder.eqMap().lock_table();
-    for (auto& kv : lt) {
-        /// @brief normalizeAux()讓kv[:].TGValue.weights加總為1.0
-        for(auto iter=kv.first.txps.begin(); iter!=kv.first.txps.end(); ++iter)
-            std::cerr << (*iter) << '\t';
-        for(auto iter=kv.second.weights.begin(); iter!=kv.second.weights.end(); ++iter)
-            std::cerr << (*iter) << '\t';
-        std::cerr << std::endl;
-    }
-}
+// {
+//     auto lt = eqBuilder.eqMap().lock_table();
+//     for (auto& kv : lt) {
+//         /// @brief normalizeAux()讓kv[:].TGValue.weights加總為1.0
+//         for(auto iter=kv.first.txps.begin(); iter!=kv.first.txps.end(); ++iter)
+//             std::cerr << (*iter) << '\t';
+//         for(auto iter=kv.second.weights.begin(); iter!=kv.second.weights.end(); ++iter)
+//             std::cerr << (*iter) << '\t';
+//         std::cerr << std::endl;
+//     }
+// }
 /// @brief BY JIMMY END
 
 
