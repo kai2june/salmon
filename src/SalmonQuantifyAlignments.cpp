@@ -633,27 +633,27 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
                 observedTranscripts.insert(transcriptID); /// @brief 一條fragment可能map到一個transcript的多個地方, 避免被重複addTotalCount
               }
               // EQCLASS
-            /// @brief BY JIMMY
-            auto geneID = gen_gene.txps_genes_[transcriptID];
-            if (gene_indexes.find(geneID) == gene_indexes.end())
-            {
-                std::vector<uint32_t> ids;
-                auto& gt = gen_gene.genes_txps_[geneID];
-                for(auto iter=gt.begin(); iter!=gt.end(); ++iter)
-                    ids.emplace_back(*iter);
-                std::map<uint32_t, double> probs;
-                for (auto iter=ids.begin(); iter!=ids.end(); ++iter)
-                    probs[*iter] = -100;
-                txpIDs_auxProbs.emplace_back(probs);
-                gene_indexes[geneID] = txpIDs_auxProbs.size() - 1;
-            }
-            uint32_t index{gene_indexes[geneID]};
-            txpIDs_auxProbs[index][transcriptID] = auxProb;
-            /// @brief BY JIMMY END
+            // /// @brief BY JIMMY
+            // auto geneID = gen_gene.txps_genes_[transcriptID];
+            // if (gene_indexes.find(geneID) == gene_indexes.end())
+            // {
+            //     std::vector<uint32_t> ids;
+            //     auto& gt = gen_gene.genes_txps_[geneID];
+            //     for(auto iter=gt.begin(); iter!=gt.end(); ++iter)
+            //         ids.emplace_back(*iter);
+            //     std::map<uint32_t, double> probs;
+            //     for (auto iter=ids.begin(); iter!=ids.end(); ++iter)
+            //         probs[*iter] = -100;
+            //     txpIDs_auxProbs.emplace_back(probs);
+            //     gene_indexes[geneID] = txpIDs_auxProbs.size() - 1;
+            // }
+            // uint32_t index{gene_indexes[geneID]};
+            // txpIDs_auxProbs[index][transcriptID] = auxProb;
+            // /// @brief BY JIMMY END
 
-            //   txpIDs.push_back(transcriptID);
-            //   auxProbs.push_back(auxProb);
-            //   auxDenom = salmon::math::logAdd(auxDenom, auxProb);
+              txpIDs.push_back(transcriptID);
+              auxProbs.push_back(auxProb);
+              auxDenom = salmon::math::logAdd(auxDenom, auxProb);
 
             } else {
               aln->logProb = LOG_0;
@@ -681,61 +681,62 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
           }
 
           // EQCLASS
-        /// @brief BY JIMMY
-        for (size_t i(0); i<txpIDs_auxProbs.size(); ++i)
-        {
-            double auxDenom = salmon::math::LOG_0;
-            for(auto& elem : txpIDs_auxProbs[i])
-                auxDenom = salmon::math::logAdd(auxDenom, elem.second);
+        // /// @brief BY JIMMY
+        // for (size_t i(0); i<txpIDs_auxProbs.size(); ++i)
+        // {
+        //     double auxDenom = salmon::math::LOG_0;
+        //     for(auto& elem : txpIDs_auxProbs[i])
+        //         auxDenom = salmon::math::logAdd(auxDenom, elem.second);
 
-            std::vector<uint32_t> ids;
-            std::vector<double> probs;
-            for(auto& elem : txpIDs_auxProbs[i])
-            {
-                ids.emplace_back(elem.first);
-                probs.emplace_back(std::exp(elem.second - auxDenom));
-            }
-
-            if (ids.size() > 0) {
-                if (rangeFactorization > 0) {
-                int txpsSize = ids.size();
-                int rangeCount = std::sqrt(txpsSize) + rangeFactorization;
-
-                for (int32_t i = 0; i < txpsSize; i++) {
-                    int rangeNumber = probs[i] * rangeCount;
-                    ids.push_back(rangeNumber);
-                }
-                }
-                /// @brief ids: [txp1, txp2, probs[txp1]*rangeCount, probs[txp2]*rangeCount]
-                /// @brief probs: [aux probability of txp1, aux probability of txp2]
-                TranscriptGroup tg(ids);
-                eqBuilder.addGroup(std::move(tg), probs);
-            } 
-        }
-        /// @brief BY JIMMY END
-
-
-        //   double auxProbSum{0.0};
-        //   for (auto& p : auxProbs) {
-        //     p = std::exp(p - auxDenom);
-        //     auxProbSum += p;
-        //   }
-
-        //   if (txpIDs.size() > 0) {
-        //     if (rangeFactorization > 0) {
-        //       int txpsSize = txpIDs.size();
-        //       int rangeCount = std::sqrt(txpsSize) + rangeFactorization;
-
-        //       for (int32_t i = 0; i < txpsSize; i++) {
-        //         int rangeNumber = auxProbs[i] * rangeCount;
-        //         txpIDs.push_back(rangeNumber);
-        //       }
+        //     std::vector<uint32_t> ids;
+        //     std::vector<double> probs;
+        //     for(auto& elem : txpIDs_auxProbs[i])
+        //     {
+        //         ids.emplace_back(elem.first);
+        //         probs.emplace_back(std::exp(elem.second - auxDenom));
         //     }
-        //     /// @brief txpIDs: [txp1, txp2, auxProbs[txp1]*rangeCount, auxProbs[txp2]*rangeCount]
-        //     /// @brief auxProbs: [aux probability of txp1, aux probability of txp2]
-        //     TranscriptGroup tg(txpIDs);
-        //     eqBuilder.addGroup(std::move(tg), auxProbs);
-        //   }
+
+        //     if (ids.size() > 0) {
+        //         if (rangeFactorization > 0) {
+        //         int txpsSize = ids.size();
+        //         int rangeCount = std::sqrt(txpsSize) + rangeFactorization;
+
+        //         for (int32_t i = 0; i < txpsSize; i++) {
+        //             int rangeNumber = probs[i] * rangeCount;
+        //             ids.push_back(rangeNumber);
+        //         }
+        //         }
+        //         /// @brief ids: [txp1, txp2, probs[txp1]*rangeCount, probs[txp2]*rangeCount]
+        //         /// @brief probs: [aux probability of txp1, aux probability of txp2]
+        //         TranscriptGroup tg(ids);
+        //         eqBuilder.addGroup(std::move(tg), probs);
+        //     } 
+        // }
+        // /// @brief BY JIMMY END
+
+
+          double auxProbSum{0.0};
+          for (auto& p : auxProbs) {
+            p = std::exp(p - auxDenom);
+            auxProbSum += p;
+          }
+
+          if (txpIDs.size() > 0) {
+            if (rangeFactorization > 0) {
+              int txpsSize = txpIDs.size();
+              int rangeCount = std::sqrt(txpsSize) + rangeFactorization;
+
+              for (int32_t i = 0; i < txpsSize; i++) {
+                /// @brief 第ith條transcript在第rangeNumber-th bin
+                int rangeNumber = auxProbs[i] * rangeCount;
+                txpIDs.push_back(rangeNumber);
+              }
+            }
+            /// @brief txpIDs: [txp1, txp2, auxProbs[txp1]*rangeCount, auxProbs[txp2]*rangeCount]
+            /// @brief auxProbs: [aux probability of txp1, aux probability of txp2]
+            TranscriptGroup tg(txpIDs);
+            eqBuilder.addGroup(std::move(tg), auxProbs);
+          }
 
           // Are we doing bias correction?
           /// @brief 一個alnGroup只會sampling一個alignment序列, 根據if success then needBiasSample = false;
