@@ -39,6 +39,8 @@
 #include "spdlog/fmt/ostr.h"
 #include "spdlog/spdlog.h"
 
+#include "GeneFileGenerator.hpp"
+
 // Cool way to do this from
 // http://stackoverflow.com/questions/108318/whats-the-simplest-way-to-test-whether-a-number-is-a-power-of-2-in-c
 bool isPowerOfTwo(uint32_t n) { return (n > 0 and (n & (n - 1)) == 0); }
@@ -68,7 +70,11 @@ int salmonIndex(int argc, const char* argv[]) {
   generic.add_options()
     ("version,v", "print version string")
     ("help,h", "produce help message")
-    ("transcripts,t", po::value<string>()->required(), "Transcript fasta file.")
+    ("genome", po::value<string>()->required(), "Input one genome fasta file prepared for generating nascent transcript..")
+    ("input_transcript_gff3", po::value<string>()->required(), "Input transcript gff3 prepared for generating nascent transcript.")
+    ("transcripts,t", po::value<string>()->required(), "Input transcript fasta file prepared for generating nascent transcript.")
+    ("output_gene_gff3", po::value<string>()->required(), "Output gene gff3 prepared for generating nascent transcript.")
+    ("output_transcript_gene_fasta", po::value<string>()->required(), "Output transcript+nascent fasta for indexing.")
     ("kmerLen,k",
       po::value<uint32_t>(&idxOpt.k)->default_value(31)->required(),
       "The size of k-mers that should be used for the quasi index.")
@@ -157,8 +163,17 @@ Creates a salmon index.
       throw(std::logic_error(errWriter.str()));
     }
 
+/// @brief BY JIMMY
+    GeneFileGenerator gen_gene(vm["genome"].as<string>(),
+                               vm["input_transcript_gff3"].as<string>(),
+                               vm["transcripts"].as<string>(),
+                               vm["output_gene_gff3"].as<string>(),
+                               vm["output_transcript_gene_fasta"].as<string>());
+/// @brief BY JIMMY END
+
     bool usePuff = (indexTypeStr == "puff");
-    string transcriptFile = vm["transcripts"].as<string>();
+    // string transcriptFile = vm["transcripts"].as<string>(); /// @brief BY AUTHOR
+    string transcriptFile = vm["output_transcript_gene_fasta"].as<string>();
     bfs::path indexDirectory(vm["index"].as<string>());
 
     // Check that the transcriptome file exists

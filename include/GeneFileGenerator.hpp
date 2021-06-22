@@ -200,7 +200,7 @@ class GeneFileGenerator
             std::string s(genome[elem.chromosomeName].substr(elem.start-1, elem.end-elem.start+1));
             for(int32_t i(0); i<s.size(); ++i)
             {
-                if(i%60==0)
+                if(i%70==0)
                     ofs_fasta << "\n";
                 ofs_fasta << s[i];
             }
