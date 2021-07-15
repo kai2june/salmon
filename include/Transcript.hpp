@@ -139,10 +139,16 @@ public:
     return *this;
   }
 
+  inline size_t uniqueEqvclass() { return uniqueEqvclass_.load(); }
+  inline size_t totalEqvclass() { return totalEqvclass_.load(); }
+
   inline double sharedCount() { return sharedCount_.load(); }
   inline size_t multimappedCount() { return multimappedCount_.load(); }
   inline size_t uniqueCount() { return uniqueCount_.load(); }
   inline size_t totalCount() { return totalCount_.load(); }
+
+  inline void addUniqueEqvclass(size_t newCount) { uniqueEqvclass_ += newCount; }
+  inline void addTotalEqvclass(size_t newCount) { totalEqvclass_ += newCount; }
 
   inline void addMultimappedCount(size_t newCount) { multimappedCount_ += newCount; }
   inline void addUniqueCount(size_t newCount) { uniqueCount_ += newCount; }
@@ -704,6 +710,10 @@ private:
   std::unique_ptr<const char, void (*)(const char*)> Sequence_ =
       std::unique_ptr<const char, void (*)(const char*)>(nullptr,
                                                          [](const char*) {});
+
+  /// @brief 紀錄每個transcript在多少eqvclass
+  std::atomic<size_t> uniqueEqvclass_;
+  std::atomic<size_t> totalEqvclass_;
 
   /// @brief records count in all aligned alnGroup
   std::atomic<size_t> multimappedCount_;

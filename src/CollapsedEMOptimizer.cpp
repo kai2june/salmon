@@ -32,6 +32,7 @@
 #include "UnpairedRead.hpp"
 #include "EMUtils.hpp"
 
+#include <map>
 using BlockedIndexRange = tbb::blocked_range<size_t>;
 
 // intelligently chosen value originally adopted from
@@ -471,8 +472,6 @@ void VBEMUpdate_(EQVecT& eqVec,
               double denom = 0.0;
               for (size_t i = 0; i < groupSize; ++i) {
                 auto tid = txps[i];
-// if (tid == 11821) std::cerr << "groupSize:" << groupSize << std::endl;
-// if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
                 auto aux = auxs[i];
                 if (expTheta[tid] > 0.0) {
                   double v = expTheta[tid] * aux;
@@ -489,31 +488,14 @@ void VBEMUpdate_(EQVecT& eqVec,
                   
                   if (expTheta[tid] > 0.0) {
                     double v = expTheta[tid] * aux;
-// if (tid == 15299) std::cerr << "old_alphaIn[FBtr0091710]:" << alphaIn[tid] << " old_alphaOut[FBtr0091710]" << alphaOut[tid] << " v*invDenom[FBtr0091710]:" << v*invDenom << " combinedWeights:" << aux << " count:" << count << std::endl;
-// if (tid == 15300) std::cerr << "old_alphaIn[FBtr0091711]:" << alphaIn[tid] << " old_alphaOut[FBtr0091711]" << alphaOut[tid] << " v*invDenom[FBtr0091711]:" << v*invDenom << " combinedWeights:" << aux << " count:" << count << std::endl;
-// if (tid == 15301) std::cerr << "old_alphaIn[FBtr0299940]: " << alphaIn[tid] << " old_alphaOut[FBtr0299940]" << alphaOut[tid] << " v*invDenom[FBtr0299940]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
-// if (tid == 15302) std::cerr << "old_alphaIn[FBtr0299941]: " << alphaIn[tid] << " old_alphaOut[FBtr0299941]" << alphaOut[tid] << " v*invDenom[FBtr0299941]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
                     salmon::utils::incLoop(alphaOut[tid], v * invDenom * multimappedFrac[tid]);
-// if (tid == 15299) std::cerr << "alphaOut[FBtr0091710]:" << alphaOut[tid] << std::endl;
-// if (tid == 15300) std::cerr << "alphaOut[FBtr0091711]:" << alphaOut[tid] << std::endl;
-// if (tid == 15301) std::cerr << "alphaOut[FBtr0299940]: " << alphaOut[tid] << std::endl;
-// if (tid == 15302) std::cerr << "alphaOut[FBtr0299941]: " << alphaOut[tid] << std::endl;
                   }
                 }
               }
 
             } else {
-// auto tid = txps[txps.front()];
-// if (tid == 11821) std::cerr << "groupSize:" << groupSize << std::endl;
-// if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
-// if (tid == 11821) std::cerr << "old_alphaIn[FBtr0086273]: " << alphaIn[tid] << " count: " << count << std::endl;
-// if (tid == 11822) std::cerr << "old_alphaIn[FBtr0086274]: " << alphaIn[tid] << " count: " << count << std::endl;
               salmon::utils::incLoop(alphaOut[txps.front()], count * multimappedFrac[txps.front()]);
-// if (tid == 11821) std::cerr << "alphaOut[FBtr0086273]: " << alphaOut[tid] << std::endl;
-// if (tid == 11822) std::cerr << "alphaOut[FBtr0086274]: " << alphaOut[tid] << std::endl;
             }
-            // if(eqID==118 || eqID==15536 || eqID==20227) std::cerr << "eqID:" << eqID << "alphaOut[FBtr0086273]: " << alphaOut[11821] << std::endl;
-            // if(eqID==118 || eqID==15536 || eqID==20227) std::cerr << "eqID:" << eqID << "alphaOut[FBtr0086274]: " << alphaOut[11822] << std::endl;
 } /// @brief if tgroup.valid
         } /// @brief for eqID in eqVec.size()
       });
@@ -1268,11 +1250,11 @@ while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
 } /// @brief while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
 
 /// @brief normalized alphas
-double alphaDenom = 0.0;
-for (size_t i = 0; i < alphas.size(); ++i)
-    alphaDenom += alphas[i];
-for (size_t i=0; i<alphas.size(); ++i)
-    alphas[i] = alphas[i] / alphaDenom;
+// double alphaDenom = 0.0;
+// for (size_t i = 0; i < alphas.size(); ++i)
+//     alphaDenom += alphas[i];
+// for (size_t i=0; i<alphas.size(); ++i)
+//     alphas[i] = alphas[i] / alphaDenom;
 
 /// @brief 測試normalized alphas是否合理, 因此多試一round VBEM
 // VBEMUpdate_(eqVec, priorAlphas, alphas,
@@ -1304,6 +1286,69 @@ for (size_t i=0; i<alphas.size(); ++i)
   sopt.biasCorrect = seqBiasCorrect;
 
   jointLog->info("iteration = {:n} | max rel diff. = {}", itNum, maxRelDiff);
+
+/// @brief 使transcript that appears in too many eqvclass remain only uniqueEqvclass count
+{
+    auto& eqBuilder = readExp.equivalenceClassBuilder();
+    auto& refs = readExp.transcripts();
+    for (size_t eqIdx = 0; eqIdx < eqVec.size(); ++eqIdx) {
+        auto& eq = eqVec[eqIdx];
+        uint64_t count = eq.second.count;
+        const TranscriptGroup& tgroup = eq.first;
+        const std::vector<uint32_t>& txps = tgroup.txps;
+        auto& auxs = eq.second.combinedWeights;
+        const uint32_t groupSize = eqBuilder.getNumTranscriptsForClass(eqIdx);
+        if(groupSize > 1)
+        {
+            /// @brief 考慮alpha
+            // double denom = 0.0;
+            // for(size_t i=0; i<groupSize; ++i)
+            // {
+            //     denom += alphas[txps[i]].load() * auxs[i];
+            // }
+
+            // for(size_t i=0; i<groupSize; ++i)
+            // {
+            //     if(refs[txps[i]].totalEqvclass() > 30)
+            //     {
+            //         // std::cerr << "tid: " << txps[i] << "  beforecount: " << alphas[txps[i]]; 
+            //         double tmp = alphas[txps[i]].load() * auxs[i] / denom * count;
+            //         double rlt = alphas[txps[i]].load() - tmp;
+            //         if (rlt <= 0.0)
+            //             rlt = 0.0;
+            //         alphas[txps[i]].store(rlt);
+            //         // std::cerr << "  aftercount: " << alphas[txps[i]] << "  aux: " << auxs[i] << "  count: " << count << std::endl;
+            //     }
+            // }
+
+            /// @brief 不考慮alpha
+
+            for(size_t i=0; i<groupSize; ++i)
+            {
+                if(refs[txps[i]].totalEqvclass() > 10)
+                {
+                    // std::cerr << "tid: " << txps[i] << "  beforecount: " << alphas[txps[i]]; 
+                    double tmp = alphas[txps[i]].load();
+                    tmp -= alphas[i]*count;
+                    if (tmp <= 0.0)
+                        tmp = 0.0;
+                    alphas[txps[i]].store(tmp);
+                    // std::cerr << "  aftercount: " << alphas[txps[i]] << "  aux: " << auxs[i] << "  count: " << count << std::endl;
+                }
+            }
+        }
+    }
+}
+
+// auto& refs = readExp.transcripts();
+// for(size_t i=0; i<refs.size(); ++i)
+//     if(refs[i].totalEqvclass() > 30)
+//         alphas[i] = refs[i].uniqueCounts;
+/// @brief BY JIMMY END
+
+
+
+
 
   double alphaSum = 0.0;
   if (useVBEM and !perTranscriptPrior) {

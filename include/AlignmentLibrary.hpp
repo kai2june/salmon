@@ -86,13 +86,7 @@ public:
       }
     }
 
-    // Make sure the transcript file exists.
-    if (!bfs::exists(transcriptFile_)) {
-      std::stringstream ss;
-      ss << "The provided transcript file: " << transcriptFile_
-         << " does not exist!\n";
-      throw std::invalid_argument(ss.str());
-    }
+
 
     // The alignment file existed, so create the alignment queue
     size_t numParseThreads = salmonOpts.numParseThreads;
@@ -189,6 +183,14 @@ public:
                                       gene_info[i].end - gene_info[i].start + 1, 
                                       alpha);
         }
+    }
+
+    // Make sure the transcript file exists.
+    if (!bfs::exists(transcriptFile_)) {
+      std::stringstream ss;
+      ss << "The provided transcript file: " << transcriptFile_
+         << " does not exist!\n";
+      throw std::invalid_argument(ss.str());
     }
 
     FASTAParser fp(transcriptFile.string());

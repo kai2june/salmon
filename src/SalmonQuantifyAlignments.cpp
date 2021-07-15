@@ -734,8 +734,13 @@ transcript.addMultimappedCount(alnGroup->alignments().size());
             }
             /// @brief txpIDs: [txp1, txp2, auxProbs[txp1]*rangeCount, auxProbs[txp2]*rangeCount]
             /// @brief auxProbs: [aux probability of txp1, aux probability of txp2]
-            TranscriptGroup tg(txpIDs);
-            eqBuilder.addGroup(std::move(tg), auxProbs);
+            if(txpIDs[0]==11181 and txpIDs[1]==11182 and txpIDs[2]==11183 and txpIDs[3]==11187 and
+               txpIDs[4]==11188 and txpIDs[5]==11189 and txpIDs[6]==11190) {}
+            else
+            {
+                TranscriptGroup tg(txpIDs);
+                eqBuilder.addGroup(std::move(tg), auxProbs);
+            }
           }
 
           // Are we doing bias correction?
@@ -1520,6 +1525,33 @@ for (auto& gcp : observedBiasParams) {
     }
     // EQCLASS
     bool done = alnLib.equivalenceClassBuilder().finish();
+
+    std::map<uint32_t, std::string> id_txp;
+    std::map<std::string, uint32_t> txp_in_eqv;
+    for(size_t i=0; i<refs.size(); ++i)
+    {
+        id_txp[i] = refs[i].RefName;
+        txp_in_eqv[refs[i].RefName] = 0;
+    }
+
+    for(auto& kv : alnLib.equivalenceClassBuilder().eqVec())
+    {
+        const TranscriptGroup& tgroup = kv.first;
+
+        for(size_t i=0; i<tgroup.txps.size(); ++i)
+            std::cerr << tgroup.txps[i] << " ";
+        std::cerr << std::endl;
+
+        if(tgroup.txps.size() / 2 == 1)
+            refs[tgroup.txps.back()].addUniqueEqvclass(1);
+        for(size_t i=0; i<tgroup.txps.size() / 2; ++i)
+            refs[tgroup.txps[i]].addTotalEqvclass(1);
+    }
+    std::ofstream writeEqvclass("txp_eqvclass.txt");
+    for(size_t i=0; i<refs.size(); ++i)
+        writeEqvclass << refs[i].RefName << " uniqueEqv: " << refs[i].uniqueEqvclass() << " totalEqv: " << refs[i].totalEqvclass() << std::endl;
+
+
     // skip the extra online rounds
     terminate = true; /// @brief 無論如何都true? 這個while看來只會執行一次
     // END EQCLASS
