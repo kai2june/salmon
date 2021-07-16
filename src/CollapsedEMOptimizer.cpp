@@ -469,51 +469,39 @@ void VBEMUpdate_(EQVecT& eqVec,
 
             if (BOOST_LIKELY(groupSize > 1)) {
               double denom = 0.0;
+              double entropy{0.0};
               for (size_t i = 0; i < groupSize; ++i) {
                 auto tid = txps[i];
-// if (tid == 11821) std::cerr << "groupSize:" << groupSize << std::endl;
-// if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
                 auto aux = auxs[i];
                 if (expTheta[tid] > 0.0) {
                   double v = expTheta[tid] * aux;
                   denom += v;
+
+                  entropy += -aux*std::log(aux);
                 }
               }
+
+              if(entropy < 1.0)
+                entropy = 1.0;
+
               if (denom <= ::minEQClassWeight) {
                 // tgroup.setValid(false);
               } else {
-                double invDenom = count / denom;
+                double invDenom = count / denom / entropy;
                 for (size_t i = 0; i < groupSize; ++i) {
                   auto tid = txps[i];
                   auto aux = auxs[i];
                   
                   if (expTheta[tid] > 0.0) {
                     double v = expTheta[tid] * aux;
-// if (tid == 15299) std::cerr << "old_alphaIn[FBtr0091710]:" << alphaIn[tid] << " old_alphaOut[FBtr0091710]" << alphaOut[tid] << " v*invDenom[FBtr0091710]:" << v*invDenom << " combinedWeights:" << aux << " count:" << count << std::endl;
-// if (tid == 15300) std::cerr << "old_alphaIn[FBtr0091711]:" << alphaIn[tid] << " old_alphaOut[FBtr0091711]" << alphaOut[tid] << " v*invDenom[FBtr0091711]:" << v*invDenom << " combinedWeights:" << aux << " count:" << count << std::endl;
-// if (tid == 15301) std::cerr << "old_alphaIn[FBtr0299940]: " << alphaIn[tid] << " old_alphaOut[FBtr0299940]" << alphaOut[tid] << " v*invDenom[FBtr0299940]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
-// if (tid == 15302) std::cerr << "old_alphaIn[FBtr0299941]: " << alphaIn[tid] << " old_alphaOut[FBtr0299941]" << alphaOut[tid] << " v*invDenom[FBtr0299941]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
                     salmon::utils::incLoop(alphaOut[tid], v * invDenom * multimappedFrac[tid]);
-// if (tid == 15299) std::cerr << "alphaOut[FBtr0091710]:" << alphaOut[tid] << std::endl;
-// if (tid == 15300) std::cerr << "alphaOut[FBtr0091711]:" << alphaOut[tid] << std::endl;
-// if (tid == 15301) std::cerr << "alphaOut[FBtr0299940]: " << alphaOut[tid] << std::endl;
-// if (tid == 15302) std::cerr << "alphaOut[FBtr0299941]: " << alphaOut[tid] << std::endl;
                   }
                 }
               }
 
             } else {
-// auto tid = txps[txps.front()];
-// if (tid == 11821) std::cerr << "groupSize:" << groupSize << std::endl;
-// if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
-// if (tid == 11821) std::cerr << "old_alphaIn[FBtr0086273]: " << alphaIn[tid] << " count: " << count << std::endl;
-// if (tid == 11822) std::cerr << "old_alphaIn[FBtr0086274]: " << alphaIn[tid] << " count: " << count << std::endl;
               salmon::utils::incLoop(alphaOut[txps.front()], count * multimappedFrac[txps.front()]);
-// if (tid == 11821) std::cerr << "alphaOut[FBtr0086273]: " << alphaOut[tid] << std::endl;
-// if (tid == 11822) std::cerr << "alphaOut[FBtr0086274]: " << alphaOut[tid] << std::endl;
             }
-            // if(eqID==118 || eqID==15536 || eqID==20227) std::cerr << "eqID:" << eqID << "alphaOut[FBtr0086273]: " << alphaOut[11821] << std::endl;
-            // if(eqID==118 || eqID==15536 || eqID==20227) std::cerr << "eqID:" << eqID << "alphaOut[FBtr0086274]: " << alphaOut[11822] << std::endl;
 } /// @brief if tgroup.valid
         } /// @brief for eqID in eqVec.size()
       });
