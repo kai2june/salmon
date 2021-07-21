@@ -358,7 +358,7 @@ void processMiniBatch(ReadExperimentT& readExp, ForgettingMassCalculator& fmCalc
             if (burnedIn) {
               /* condition fragment length prob on txp length */
               size_t rlen = static_cast<size_t>(refLength);
-              double refLengthCM = cmfCache.get_or_update(fl, fetchCMF);
+              double refLengthCM = cmfCache.get_or_update(rlen, fetchCMF);
 
               bool computeMass =
                   fl < refLength and !salmon::math::isLog0(refLengthCM);
