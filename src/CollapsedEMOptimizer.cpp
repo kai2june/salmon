@@ -410,6 +410,7 @@ auto tid = txps[txps.front()];
  * classes to estimate the latent variables (alphaOut)
  * given the current estimates (alphaIn).
  */
+/// @brief CollapsedEMOptimizer::VecType是std::vector<std::atomic<double>>
 template <typename EQVecT>
 void VBEMUpdate_(EQVecT& eqVec,
                  std::vector<double>& priorAlphas, 
@@ -425,6 +426,7 @@ void VBEMUpdate_(EQVecT& eqVec,
   for (size_t i = 0; i < M; ++i) {
     alphaSum += alphaIn[i] + priorAlphas[i];
   }
+
 
   double logNorm = boost::math::digamma(alphaSum);
 
@@ -1266,6 +1268,39 @@ while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
 
     ++itNum;
 } /// @brief while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
+
+std::vector<uint32_t> occurence_eqvclass(alphas.size(), 0);
+std::vector<uint32_t> aux_over_avg(alphas.size(), 0);
+for(auto& elem : eqVec)
+{
+    const TranscriptGroup tgroup = elem.first;
+    std::vector<uint32_t> txps = tgroup.txps;
+    auto tgValue = elem.second;
+    std::vector<double> auxs = tgValue.combinedWeights;
+    size_t GroupSize = tgroup.txps.size();
+    for (uint32_t tid : tgroup.txps)
+        ++occurence_eqvclass[tid];
+    for (size_t i=0; i<auxs.size(); ++i)
+        if (auxs[i] * GroupSize > 1.0)
+            ++aux_over_avg[txps[i]];
+}
+
+size_t occ_count = 0;
+size_t over_count = 0;
+for(size_t i=0; i<occurence_eqvclass.size(); ++i)
+{
+
+    if(occurence_eqvclass[i] > 5)
+    {
+        ++occ_count; 
+        if(float(aux_over_avg[i]) / float(occurence_eqvclass[i]) < 0.5)
+        {
+            alphas[i] = 0.0;
+            ++over_count;
+        }
+    }
+}
+std::cerr << "over N eqvclass: " << occ_count << " less than half(count removed): " << over_count << std::endl;
 
 /// @brief normalized alphas
 // double alphaDenom = 0.0;
