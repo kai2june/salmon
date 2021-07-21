@@ -362,7 +362,9 @@ void processMiniBatch(ReadExperimentT& readExp, ForgettingMassCalculator& fmCalc
 
               bool computeMass =
                   fl < refLength and !salmon::math::isLog0(refLengthCM);
-              logFragProb = (computeMass) ? (lenProb - refLengthCM)
+            //   logFragProb = (computeMass) ? (lenProb - refLengthCM)
+            //                               : salmon::math::LOG_EPSILON;
+                logFragProb = (computeMass) ? (lenProb)
                                           : salmon::math::LOG_EPSILON;
               if (computeMass and refLengthCM < lenProb) {
                 // Threading is hard!  It's possible that an update to the PMF
