@@ -1287,10 +1287,25 @@ while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
 
   jointLog->info("iteration = {:n} | max rel diff. = {}", itNum, maxRelDiff);
 
+
+
 /// @brief 使transcript that appears in too many eqvclass remain only uniqueEqvclass count
 {
     auto& eqBuilder = readExp.equivalenceClassBuilder();
     auto& refs = readExp.transcripts();
+    for(auto& kv : eqBuilder.eqVec())
+    {
+        const TranscriptGroup& tgroup = kv.first;
+
+        // for(size_t i=0; i<tgroup.txps.size(); ++i)
+        //     std::cerr << tgroup.txps[i] << " ";
+        // std::cerr << std::endl;
+
+        if(tgroup.txps.size() / 2 == 1)
+            refs[tgroup.txps.back()].addUniqueEqvclass(1);
+        for(size_t i=0; i<tgroup.txps.size() / 2; ++i)
+            refs[tgroup.txps[i]].addTotalEqvclass(1);
+    }
     for (size_t eqIdx = 0; eqIdx < eqVec.size(); ++eqIdx) {
         auto& eq = eqVec[eqIdx];
         uint64_t count = eq.second.count;
@@ -1301,41 +1316,46 @@ while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
         if(groupSize > 1)
         {
             /// @brief 考慮alpha
-            // double denom = 0.0;
-            // for(size_t i=0; i<groupSize; ++i)
-            // {
-            //     denom += alphas[txps[i]].load() * auxs[i];
-            // }
+            double denom = 0.0;
+            for(size_t i=0; i<groupSize; ++i)
+            {
+                denom += alphas[txps[i]].load() * auxs[i];
+            }
+            if (denom == 0.0)
+                continue;
+
+            std::cerr << "Eqvclass count ";
+            for(size_t i=0; i<groupSize; ++i)
+            {
+                std::cerr << refs[txps[i]].totalEqvclass() << " ";
+                if(refs[txps[i]].totalEqvclass() > 30)
+                {
+                    // std::cerr << "tid: " << txps[i] << "  beforecount: " << alphas[txps[i]];
+                    double tmp = alphas[txps[i]].load() * auxs[i] / denom * count;
+                    double rlt = alphas[txps[i]].load() - tmp;
+                    if (rlt <= 0.0)
+                        rlt = 0.0;
+                    alphas[txps[i]].store(rlt);
+                    // std::cerr << "  aftercount: " << alphas[txps[i]] << "  aux: " << auxs[i] << "  count: " << count << std::endl;
+                }
+            }
+            std::cerr << std::endl;
+
+            /// @brief 不考慮alpha
 
             // for(size_t i=0; i<groupSize; ++i)
             // {
             //     if(refs[txps[i]].totalEqvclass() > 30)
             //     {
             //         // std::cerr << "tid: " << txps[i] << "  beforecount: " << alphas[txps[i]]; 
-            //         double tmp = alphas[txps[i]].load() * auxs[i] / denom * count;
-            //         double rlt = alphas[txps[i]].load() - tmp;
-            //         if (rlt <= 0.0)
-            //             rlt = 0.0;
-            //         alphas[txps[i]].store(rlt);
+            //         double tmp = alphas[txps[i]].load();
+            //         tmp -= auxs[i]*count;
+            //         if (tmp <= 0.0)
+            //             tmp = 0.0;
+            //         alphas[txps[i]].store(tmp);
             //         // std::cerr << "  aftercount: " << alphas[txps[i]] << "  aux: " << auxs[i] << "  count: " << count << std::endl;
             //     }
             // }
-
-            /// @brief 不考慮alpha
-
-            for(size_t i=0; i<groupSize; ++i)
-            {
-                if(refs[txps[i]].totalEqvclass() > 10)
-                {
-                    // std::cerr << "tid: " << txps[i] << "  beforecount: " << alphas[txps[i]]; 
-                    double tmp = alphas[txps[i]].load();
-                    tmp -= alphas[i]*count;
-                    if (tmp <= 0.0)
-                        tmp = 0.0;
-                    alphas[txps[i]].store(tmp);
-                    // std::cerr << "  aftercount: " << alphas[txps[i]] << "  aux: " << auxs[i] << "  count: " << count << std::endl;
-                }
-            }
         }
     }
 }

@@ -1526,27 +1526,26 @@ for (auto& gcp : observedBiasParams) {
     // EQCLASS
     bool done = alnLib.equivalenceClassBuilder().finish();
 
-    std::map<uint32_t, std::string> id_txp;
-    std::map<std::string, uint32_t> txp_in_eqv;
-    for(size_t i=0; i<refs.size(); ++i)
-    {
-        id_txp[i] = refs[i].RefName;
-        txp_in_eqv[refs[i].RefName] = 0;
-    }
+    // std::map<uint32_t, std::string> id_txp;
+    // std::map<std::string, uint32_t> txp_in_eqv;
+    // for(size_t i=0; i<refs.size(); ++i)
+    // {
+    //     id_txp[i] = refs[i].RefName;
+    //     txp_in_eqv[refs[i].RefName] = 0;
+    // }
+    // for(auto& kv : alnLib.equivalenceClassBuilder().eqVec())
+    // {
+    //     const TranscriptGroup& tgroup = kv.first;
 
-    for(auto& kv : alnLib.equivalenceClassBuilder().eqVec())
-    {
-        const TranscriptGroup& tgroup = kv.first;
+    //     for(size_t i=0; i<tgroup.txps.size(); ++i)
+    //         std::cerr << tgroup.txps[i] << " ";
+    //     std::cerr << std::endl;
 
-        for(size_t i=0; i<tgroup.txps.size(); ++i)
-            std::cerr << tgroup.txps[i] << " ";
-        std::cerr << std::endl;
-
-        if(tgroup.txps.size() / 2 == 1)
-            refs[tgroup.txps.back()].addUniqueEqvclass(1);
-        for(size_t i=0; i<tgroup.txps.size() / 2; ++i)
-            refs[tgroup.txps[i]].addTotalEqvclass(1);
-    }
+    //     if(tgroup.txps.size() / 2 == 1)
+    //         refs[tgroup.txps.back()].addUniqueEqvclass(1);
+    //     for(size_t i=0; i<tgroup.txps.size() / 2; ++i)
+    //         refs[tgroup.txps[i]].addTotalEqvclass(1);
+    // }
     std::ofstream writeEqvclass("txp_eqvclass.txt");
     for(size_t i=0; i<refs.size(); ++i)
         writeEqvclass << refs[i].RefName << " uniqueEqv: " << refs[i].uniqueEqvclass() << " totalEqv: " << refs[i].totalEqvclass() << std::endl;
