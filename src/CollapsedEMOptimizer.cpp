@@ -108,11 +108,11 @@ std::vector<double> populatePriorAlphas_(
     }
   }
 
-//   for (size_t i(0); i<transcripts.size(); ++i)
-//   {
-//     double uniqueCount = static_cast<double>(transcripts[i].uniqueCount() + 0.5);
-//     priorAlphas[i] *= uniqueCount;
-//   }
+  for (size_t i(0); i<transcripts.size(); ++i)
+  {
+    double uniqueCount = static_cast<double>(transcripts[i].uniqueCount() + 0.5);
+    priorAlphas[i] *= uniqueCount;
+  }
 
   return priorAlphas;
 }
