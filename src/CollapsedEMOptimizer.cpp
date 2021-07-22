@@ -356,7 +356,7 @@ for (size_t i = 0; i < groupSize; ++i) {
                 auto tid = txps[i];
 // if (tid == 11821) std::cerr << "groupSize:" << groupSize << std::endl;
 // if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
-                auto aux = auxs[i];
+                auto aux = auxs[i]*multimappedFrac[tid];
                 /// @brief aux是論文的{w^j_i}, 即combinedWeight
                 /// @brief v是equation11的分子(不含{d^j})
                 /// @brief v就是Estep算的東西
@@ -372,7 +372,7 @@ for (size_t i = 0; i < groupSize; ++i) {
                 double invDenom = count / denom;
 for (size_t i = 0; i < groupSize; ++i) {
                   auto tid = txps[i];
-                  auto aux = auxs[i];
+                  auto aux = auxs[i]*multimappedFrac[tid];
                   double v = (alphaIn[tid]) * aux;
                   if (!std::isnan(v)) {
                     /// @brief Mstep更新alpha
@@ -380,7 +380,7 @@ for (size_t i = 0; i < groupSize; ++i) {
 // if (tid == 31745) std::cerr << "old_alphaIn[FBtr0300834]: " << alphaIn[tid] << " old_alphaOut[FBtr0300834]" << alphaOut[tid] << " v*invDenom[FBtr0300834]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
 // if (tid == 15301) std::cerr << "old_alphaIn[FBtr0299940]: " << alphaIn[tid] << " old_alphaOut[FBtr0299940]" << alphaOut[tid] << " v*invDenom[FBtr0299940]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
 // if (tid == 15302) std::cerr << "old_alphaIn[FBtr0299941]: " << alphaIn[tid] << " old_alphaOut[FBtr0299941]" << alphaOut[tid] << " v*invDenom[FBtr0299941]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
-                    salmon::utils::incLoop(alphaOut[tid], v * invDenom * multimappedFrac[tid]);
+                    salmon::utils::incLoop(alphaOut[tid], v * invDenom);
 // if (tid == 31744) std::cerr << "alphaOut[FBtr0300835]: " << alphaOut[tid] << std::endl;
 // if (tid == 31745) std::cerr << "alphaOut[FBtr0300834]: " << alphaOut[tid] << std::endl;
 // if (tid == 15301) std::cerr << "alphaOut[FBtr0299940]: " << alphaOut[tid] << std::endl;
@@ -394,7 +394,7 @@ auto tid = txps[txps.front()];
 // if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
 // if (tid == 11821) std::cerr << "old_alphaIn[FBtr0086273]: " << alphaIn[tid] << " count: " << count << std::endl;
 // if (tid == 11822) std::cerr << "old_alphaIn[FBtr0086274]: " << alphaIn[tid] << " count: " << count << std::endl;
-              salmon::utils::incLoop(alphaOut[txps.front()], count * multimappedFrac[txps.front()]);
+              salmon::utils::incLoop(alphaOut[txps.front()], count);
 // if (tid == 11821) std::cerr << "alphaOut[FBtr0086273]: " << alphaOut[tid] << std::endl;
 // if (tid == 11822) std::cerr << "alphaOut[FBtr0086274]: " << alphaOut[tid] << std::endl;
             }
@@ -473,7 +473,7 @@ void VBEMUpdate_(EQVecT& eqVec,
                 auto tid = txps[i];
 // if (tid == 11821) std::cerr << "groupSize:" << groupSize << std::endl;
 // if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
-                auto aux = auxs[i];
+                auto aux = auxs[i]*multimappedFrac[tid];
                 if (expTheta[tid] > 0.0) {
                   double v = expTheta[tid] * aux;
                   denom += v;
@@ -485,7 +485,7 @@ void VBEMUpdate_(EQVecT& eqVec,
                 double invDenom = count / denom;
                 for (size_t i = 0; i < groupSize; ++i) {
                   auto tid = txps[i];
-                  auto aux = auxs[i];
+                  auto aux = auxs[i]*multimappedFrac[tid];
                   
                   if (expTheta[tid] > 0.0) {
                     double v = expTheta[tid] * aux;
@@ -493,7 +493,7 @@ void VBEMUpdate_(EQVecT& eqVec,
 // if (tid == 15300) std::cerr << "old_alphaIn[FBtr0091711]:" << alphaIn[tid] << " old_alphaOut[FBtr0091711]" << alphaOut[tid] << " v*invDenom[FBtr0091711]:" << v*invDenom << " combinedWeights:" << aux << " count:" << count << std::endl;
 // if (tid == 15301) std::cerr << "old_alphaIn[FBtr0299940]: " << alphaIn[tid] << " old_alphaOut[FBtr0299940]" << alphaOut[tid] << " v*invDenom[FBtr0299940]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
 // if (tid == 15302) std::cerr << "old_alphaIn[FBtr0299941]: " << alphaIn[tid] << " old_alphaOut[FBtr0299941]" << alphaOut[tid] << " v*invDenom[FBtr0299941]: " << v*invDenom << " combinedWeights:" << aux << " count: " << count << std::endl;
-                    salmon::utils::incLoop(alphaOut[tid], v * invDenom * multimappedFrac[tid]);
+                    salmon::utils::incLoop(alphaOut[tid], v * invDenom);
 // if (tid == 15299) std::cerr << "alphaOut[FBtr0091710]:" << alphaOut[tid] << std::endl;
 // if (tid == 15300) std::cerr << "alphaOut[FBtr0091711]:" << alphaOut[tid] << std::endl;
 // if (tid == 15301) std::cerr << "alphaOut[FBtr0299940]: " << alphaOut[tid] << std::endl;
@@ -508,7 +508,7 @@ void VBEMUpdate_(EQVecT& eqVec,
 // if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
 // if (tid == 11821) std::cerr << "old_alphaIn[FBtr0086273]: " << alphaIn[tid] << " count: " << count << std::endl;
 // if (tid == 11822) std::cerr << "old_alphaIn[FBtr0086274]: " << alphaIn[tid] << " count: " << count << std::endl;
-              salmon::utils::incLoop(alphaOut[txps.front()], count * multimappedFrac[txps.front()]);
+              salmon::utils::incLoop(alphaOut[txps.front()], count);
 // if (tid == 11821) std::cerr << "alphaOut[FBtr0086273]: " << alphaOut[tid] << std::endl;
 // if (tid == 11822) std::cerr << "alphaOut[FBtr0086274]: " << alphaOut[tid] << std::endl;
             }
