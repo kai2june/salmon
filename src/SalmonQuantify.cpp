@@ -298,6 +298,9 @@ void processMiniBatch(ReadExperimentT& readExp, ForgettingMassCalculator& fmCalc
       useAuxParams = ((localNumAssignedFragments + numAssignedFragments) >=
                       salmonOpts.numPreBurninFrags); /// @brief >= 5000 as default
       // For each alignment of this read
+      if (alnGroup.alignments().size() > 30)
+        continue;
+
       for (auto& aln : alnGroup.alignments()) {
         bool considerCondProb{burnedIn or useAuxParams};
 
