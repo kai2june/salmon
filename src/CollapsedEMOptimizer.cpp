@@ -1077,14 +1077,14 @@ bool CollapsedEMOptimizer::optimize(ExpT& readExp, SalmonOpts& sopt,
   tbb::global_control c(tbb::global_control::max_allowed_parallelism, sopt.numThreads);
   std::vector<Transcript>& transcripts = readExp.transcripts();
 std::vector<double> multimappedFrac(transcripts.size(), 1.0);
-// for (size_t i(0); i<transcripts.size(); ++i)
-// {
-//     std::cerr << transcripts[i].multimappedCount() << std::endl;
-//     if (transcripts[i].multimappedCount() == 0)
-//         multimappedFrac[i] = 1.0;
-//     else
-//         multimappedFrac[i] = (double)transcripts[i].totalCount() / (double)transcripts[i].multimappedCount();
-// } 
+for (size_t i(0); i<transcripts.size(); ++i)
+{
+    std::cerr << transcripts[i].multimappedCount() << std::endl;
+    if (transcripts[i].multimappedCount() == 0)
+        multimappedFrac[i] = 1.0;
+    else
+        multimappedFrac[i] = (double)transcripts[i].totalCount() / (double)transcripts[i].multimappedCount();
+}
   std::vector<bool> available(transcripts.size(), false);
 
   // An EM termination criterion, adopted from Bray et al. 2016
