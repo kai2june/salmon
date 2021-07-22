@@ -671,7 +671,7 @@ void processMiniBatch(ReadExperimentT& readExp, ForgettingMassCalculator& fmCalc
           }
         }
         double r = uni(randEng);
-        if (!burnedIn and r < std::exp(aln.logProb)) {
+        if (!burnedIn and r < std::exp(aln.logProb) and alnGroup.alignments().size() == 1) {
 
           // Old fragment length calc: double fragLength = aln.fragLength();
           auto fragLength = aln.fragLengthPedantic(transcript.RefLength);
