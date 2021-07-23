@@ -351,6 +351,12 @@ if (tgroup.valid) {
             // update according to our VBEM rule.
 
             if (BOOST_LIKELY(groupSize > 1)) {
+              auto maxi_iter = std::max_element(auxs.begin(), auxs.end());
+              auto left_iter = std::max_element(auxs.begin(), maxi_iter), right_iter = std::max_element(maxi_iter+1, auxs.end());
+              auto maxi_2nd_iter = *left_iter > *right_iter ? left_iter : right_iter;
+              if(*maxi_iter - *maxi_2nd_iter < 0.1)
+                continue;
+
               double denom = 0.0;
 for (size_t i = 0; i < groupSize; ++i) {
                 auto tid = txps[i];
@@ -468,6 +474,12 @@ void VBEMUpdate_(EQVecT& eqVec,
             // update according to our VBEM rule.
 
             if (BOOST_LIKELY(groupSize > 1)) {
+              auto maxi_iter = std::max_element(auxs.begin(), auxs.end());
+              auto left_iter = std::max_element(auxs.begin(), maxi_iter), right_iter = std::max_element(maxi_iter+1, auxs.end());
+              auto maxi_2nd_iter = *left_iter > *right_iter ? left_iter : right_iter;
+              if(*maxi_iter - *maxi_2nd_iter < 0.1)
+                continue;
+
               double denom = 0.0;
               for (size_t i = 0; i < groupSize; ++i) {
                 auto tid = txps[i];
