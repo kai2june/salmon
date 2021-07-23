@@ -326,13 +326,14 @@ void EMUpdate_(EQVecT& eqVec,
                std::vector<double>& priorAlphas,
                const CollapsedEMOptimizer::VecType& alphaIn,
                CollapsedEMOptimizer::VecType& alphaOut,
-               std::vector<double>& multimappedFrac) {
+               std::vector<double>& multimappedFrac,
+               double winnerTakesAll_threshold) {
 
   assert(alphaIn.size() == alphaOut.size());
 
   tbb::parallel_for(
       BlockedIndexRange(size_t(0), size_t(eqVec.size())),
-      [&eqVec, &priorAlphas, &alphaIn, &alphaOut, &multimappedFrac](const BlockedIndexRange& range) -> void {
+      [&eqVec, &priorAlphas, &alphaIn, &alphaOut, &multimappedFrac, winnerTakesAll_threshold](const BlockedIndexRange& range) -> void {
         for (auto eqID : boost::irange(range.begin(), range.end())) {
           auto& kv = eqVec[eqID];
 
@@ -350,7 +351,7 @@ if (tgroup.valid) {
             // then it gets the full count.  Otherwise,
             // update according to our VBEM rule.
 
-            if (BOOST_LIKELY(groupSize > 1)) {
+            if (BOOST_LIKELY(groupSize > 1) and *std::max_element(auxs.begin(), auxs.end()) < winnerTakesAll_threshold) {
               double denom = 0.0;
 for (size_t i = 0; i < groupSize; ++i) {
                 auto tid = txps[i];
@@ -416,7 +417,8 @@ void VBEMUpdate_(EQVecT& eqVec,
                  const CollapsedEMOptimizer::VecType& alphaIn,
                  CollapsedEMOptimizer::VecType& alphaOut,
                  CollapsedEMOptimizer::VecType& expTheta,
-                 std::vector<double>& multimappedFrac) {
+                 std::vector<double>& multimappedFrac,
+                 double winnerTakesAll_threshold) {
 
 /// @brief 公式: digamma(alpha_i*priorAlpha_i) / Sigma{digamma(alpha_i*priorAlpha_i)} 
   assert(alphaIn.size() == alphaOut.size());
@@ -451,7 +453,7 @@ void VBEMUpdate_(EQVecT& eqVec,
   tbb::parallel_for(
       BlockedIndexRange(size_t(0), size_t(eqVec.size())),
       [&eqVec, &alphaIn, &alphaOut,
-       &expTheta, &multimappedFrac](const BlockedIndexRange& range) -> void {
+       &expTheta, &multimappedFrac, winnerTakesAll_threshold](const BlockedIndexRange& range) -> void {
         for (auto eqID : boost::irange(range.begin(), range.end())) {
           auto& kv = eqVec[eqID];
 
@@ -467,7 +469,7 @@ void VBEMUpdate_(EQVecT& eqVec,
             // then it gets the full count.  Otherwise,
             // update according to our VBEM rule.
 
-            if (BOOST_LIKELY(groupSize > 1)) {
+            if (BOOST_LIKELY(groupSize > 1) and *std::max_element(auxs.begin(), auxs.end()) < winnerTakesAll_threshold) {
               double denom = 0.0;
               for (size_t i = 0; i < groupSize; ++i) {
                 auto tid = txps[i];
@@ -1197,9 +1199,11 @@ while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
       }
     } /// @brief if (needBias and (itNum > targetIt or converged)) 
 
+    double winnerTakesAll_threshold = 0.5;
     if (useVBEM) {
+
       VBEMUpdate_(eqVec, priorAlphas, alphas,
-                  alphasPrime, expTheta, multimappedFrac);
+                  alphasPrime, expTheta, multimappedFrac, winnerTakesAll_threshold);
     } else {
       /*
       if (itNum > 0 and (itNum % 250 == 0)) {
@@ -1213,7 +1217,7 @@ while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
       /// @brief priorAlphas : 0.01
       /// @brief 上面修改alphas是一定比例projectedCount+一定比例uniqueCount
       /// @brief alphasPrime : 1.0
-      EMUpdate_(eqVec, priorAlphas, alphas, alphasPrime, multimappedFrac);
+      EMUpdate_(eqVec, priorAlphas, alphas, alphasPrime, multimappedFrac, winnerTakesAll_threshold);
     }
 
     /// @brief 這個for是論文equation 12
