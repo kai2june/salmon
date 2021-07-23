@@ -468,6 +468,9 @@ void VBEMUpdate_(EQVecT& eqVec,
             // update according to our VBEM rule.
 
             if (BOOST_LIKELY(groupSize > 1)) {
+              if ( *std::max_element(auxs.begin(), auxs.end()) < 1.0/(groupSize-1) )
+                continue;
+
               double denom = 0.0;
               for (size_t i = 0; i < groupSize; ++i) {
                 auto tid = txps[i];
