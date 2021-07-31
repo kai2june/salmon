@@ -223,7 +223,7 @@ std::cerr << "how many weights " << lt.size() << std::endl;
     }
 
     nascent_percentage_ = (double)nascentCount / (double)totalCount;
-    if ( (double)nascentCount / (double)totalCount <= add_nascent_threshold_ )
+    if ( (double)nascentCount / (double)totalCount <= (add_nascent_threshold_*intron_read_percentage_in_nascent_at_least_) )
     {
         for(auto& kv : countVec_)
         {
@@ -235,12 +235,10 @@ std::cerr << "how many weights " << lt.size() << std::endl;
             }
             else
             {
-                std::cerr << "weightsSize(): " << kv.second.weightsSize() << std::endl;
                 for(size_t j(0); j<kv.second.weightsSize(); ++j)
                 {
-                    std::cerr << kv.first.txps[j] << " ";
                     if (kv.first.txps[j] >= transcriptome_size_no_nascent_)
-                        std::cerr << "resetWeight: " << kv.second.resetWeight(j) << " ";
+                        kv.second.resetWeight(j);
                 }
                 kv.second.normalizeAux();
             }
@@ -315,6 +313,11 @@ public:
         add_nascent_threshold_ = add_nascent_threshold;
     }
 
+    void set_intron_read_percentage_in_nascent_at_least(double intron_read_percentage_in_nascent_at_least)
+    {
+        intron_read_percentage_in_nascent_at_least_ = intron_read_percentage_in_nascent_at_least;
+    }
+
     uint32_t get_transcriptome_size_no_nascent() const
     {
         return transcriptome_size_no_nascent_;
@@ -330,6 +333,11 @@ public:
         return nascent_percentage_;
     }
 
+    double get_intron_read_percentage_in_nascent_at_least() const
+    {
+        return intron_read_percentage_in_nascent_at_least_;
+    }
+
 private:
   std::atomic<bool> active_;
   libcuckoo::cuckoohash_map<TranscriptGroup, TGValueType, TranscriptGroupHasher> countMap_;
@@ -338,6 +346,7 @@ private:
   uint32_t transcriptome_size_no_nascent_{0};
   double add_nascent_threshold_{0.0};
   double nascent_percentage_{0.0};
+  double intron_read_percentage_in_nascent_at_least_{0.6};
 };
 
 template <>

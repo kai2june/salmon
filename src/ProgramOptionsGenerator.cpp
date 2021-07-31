@@ -39,7 +39,10 @@ namespace salmon {
        "Transcripts count in the transcriptome.")
       ("add_nascent_threshold", po::value<double>(),
        "If 'uniquely aligned nascent%' > 'add_nacent_threshold', then keep nascent in target;"
-       "otherwise, all nascent in eqv. class local weight = 0.")
+       "otherwise, all nascent in eqv. class local weight = 0")
+      ("intron_read_percentage_in_nascent_at_least", 
+       po::value<double>(&(sopt.intron_read_percentage_in_nascent_at_least))->default_value(salmon::defaults::intron_read_percentage_in_nascent_at_least),
+       "Over intron_read_percentage_in_nascent_at_least of nascent read is intronic/exon-intron read.")
       ("genome,c", po::value<string>(),
        "One FASTA file that contains all chromosomes.")
       ("gff3,3", po::value<string>(),

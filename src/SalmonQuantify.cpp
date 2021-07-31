@@ -2435,8 +2435,9 @@ transcript abundance from RNA-seq reads
       fmt::print(stderr, "{}", commentString);
     }
 
-    uint32_t transcriptome_size_no_nascent{0};
-    double add_nascent_threshold{0.0};
+    uint32_t transcriptome_size_no_nascent;
+    double add_nascent_threshold;
+    double intron_read_percentage_in_nascent_at_least;
     if (vm.count("transcriptome_size_no_nascent")) 
     {
       transcriptome_size_no_nascent = vm["transcriptome_size_no_nascent"].as<uint32_t>();
@@ -2464,6 +2465,20 @@ transcript abundance from RNA-seq reads
     {
       fmt::print(stderr, "add_nascent_threshold is required but not provided.\n");
       std::exit(1);
+    }
+    if (vm.count("intron_read_percentage_in_nascent_at_least"))
+    {
+        intron_read_percentage_in_nascent_at_least = vm["intron_read_percentage_in_nascent_at_least"].as<double>();
+        if ( intron_read_percentage_in_nascent_at_least < (double)0.0 || intron_read_percentage_in_nascent_at_least > (double)1.0)
+        {
+            fmt::print(stderr, "intron_read_percentage_in_nascent_at_least is a probability => range[0.0,1.0]\n");
+            std::exit(1);
+        }
+    }
+    else
+    {
+        fmt::print(stderr, "intron_read_percentage_in_nascent_at_least is required but not provided.\n");
+        std::exit(1);
     }
 
     sopt.quantMode = SalmonQuantMode::MAP;
@@ -2509,6 +2524,7 @@ transcript abundance from RNA-seq reads
 
     experiment.equivalenceClassBuilder().set_transcriptome_size_no_nascent(transcriptome_size_no_nascent);
     experiment.equivalenceClassBuilder().set_add_nascent_threshold(add_nascent_threshold);
+    experiment.equivalenceClassBuilder().set_intron_read_percentage_in_nascent_at_least(intron_read_percentage_in_nascent_at_least);
 
     // This will be the class in charge of maintaining our
     // rich equivalence classes

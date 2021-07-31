@@ -292,6 +292,8 @@ struct SalmonOpts {
   std::vector<std::string> unmatedReadFiles;
   std::vector<std::string> mate1ReadFiles;
   std::vector<std::string> mate2ReadFiles;
+
+  double intron_read_percentage_in_nascent_at_least;
 };
 
 #endif // SALMON_OPTS_HPP

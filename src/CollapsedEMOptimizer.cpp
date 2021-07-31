@@ -527,6 +527,7 @@ size_t markDegenerateClasses(
     size_t transcriptome_size_no_nascent,
     double add_nascent_threshold,
     double nascent_percentage,
+    double intron_read_percentage_in_nascent_at_least,
     bool verbose = false) {
 
   size_t numDropped{0};
@@ -551,11 +552,10 @@ for (size_t i = 0; i < groupSize; ++i) {
                   << ", aux = " << aux << "\n";
         else
         {
-            if ( nascent_percentage < add_nascent_threshold)
-                std::cerr << "Nascent removed: nascent_percentage " << nascent_percentage 
-                          << " < add_nacent_threshold " << add_nascent_threshold
-                          << "; val is NAN; alpha( " << tid << " ) = " << alphaIn[tid]
-                    << ", aux = " << aux << "\n";
+            if ( nascent_percentage < add_nascent_threshold*intron_read_percentage_in_nascent_at_least)
+                std::cerr << "Nascent removed: intron/exon-intron reads " << nascent_percentage 
+                          << " < expected(nascent%* intron_read_percentage_in_nascent_at_least) " << add_nascent_threshold*intron_read_percentage_in_nascent_at_least
+                          << "; val is NAN; tid(" << tid << "), aux = " << aux << "\n";
             else
                 std::cerr << "val is NAN; alpha( " << tid << " ) = " << alphaIn[tid]
                   << ", aux = " << aux << "\n";
@@ -836,7 +836,8 @@ bool CollapsedEMOptimizer::gatherBootstraps(
       markDegenerateClasses(eqVec, alphas, available, sopt.jointLog,
                             eqBuilder.get_transcriptome_size_no_nascent(), 
                             eqBuilder.get_add_nascent_threshold(),
-                            eqBuilder.get_nascent_percentage());
+                            eqBuilder.get_nascent_percentage(),
+                            eqBuilder.get_intron_read_percentage_in_nascent_at_least());
   sopt.jointLog->info("Marked {} weighted equivalence classes as degenerate",
                       numRemoved);
 
@@ -1164,7 +1165,8 @@ std::vector<double> multimappedFrac(transcripts.size(), 1.0);
       markDegenerateClasses(eqVec, alphas, available, sopt.jointLog,
                             eqBuilder.get_transcriptome_size_no_nascent(), 
                             eqBuilder.get_add_nascent_threshold(),
-                            eqBuilder.get_nascent_percentage());
+                            eqBuilder.get_nascent_percentage(),
+                            eqBuilder.get_intron_read_percentage_in_nascent_at_least());
   sopt.jointLog->info("Marked {} weighted equivalence classes as degenerate",
                       numRemoved);
 

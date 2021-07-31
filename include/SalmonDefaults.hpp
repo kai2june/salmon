@@ -121,6 +121,10 @@ namespace defaults {
   constexpr const uint32_t numErrorBins{6};
   constexpr const bool sampleOutput{false};
   constexpr const bool sampleUnaligned{false};
+
+  /// @brief BY JIMMY
+  constexpr const double intron_read_percentage_in_nascent_at_least{0.6};
+  /// @brief BY JIMMY
 }
 }
 
