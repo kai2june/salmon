@@ -49,8 +49,7 @@ public:
   ReadExperiment(std::vector<ReadLibrary>& readLibraries,
                  // const boost::filesystem::path& transcriptFile,
                  const boost::filesystem::path& indexDirectory,
-                 SalmonOpts& sopt, 
-                 uint32_t transcriptome_size_no_nascent=0, double add_nascent_threshold=0.0)
+                 SalmonOpts& sopt)
       : readLibraries_(readLibraries),
         // transcriptFile_(transcriptFile),
         transcripts_(std::vector<Transcript>()), totalAssignedFragments_(0),
@@ -61,11 +60,6 @@ public:
                     distribution_utils::DistributionSpace::LOG),
         observedGC_(sopt.numConditionalGCBins, sopt.numFragGCBins,
                     distribution_utils::DistributionSpace::LOG) {
-    if (transcriptome_size_no_nascent > 0)
-        transcriptome_size_no_nascent_ = transcriptome_size_no_nascent;
-    if (add_nascent_threshold >= 0.0 and add_nascent_threshold <= 1.0)
-        add_nascent_threshold_ = add_nascent_threshold;
-
     namespace bfs = boost::filesystem;
 
     // Make sure the read libraries are valid.
@@ -753,17 +747,6 @@ public:
     return salmonIndex_->index_retains_duplicates(); 
   }
 
-public:
-    uint32_t get_transcriptome_size_no_nascent() const
-    {
-        return transcriptome_size_no_nascent_;
-    }
-
-    double get_add_nascent_threshold() const
-    {
-        return add_nascent_threshold_;
-    }
-
 private:
   void setTranscriptLengthClasses_(std::vector<uint32_t>& lengths,
                                    size_t nbins) {
@@ -879,8 +862,6 @@ private:
   std::vector<double> conditionalMeans_;
 
   uint64_t numDecoys_{0};
-  uint32_t transcriptome_size_no_nascent_{0};
-  double add_nascent_threshold{0.0};
 };
 
 #endif // EXPERIMENT_HPP

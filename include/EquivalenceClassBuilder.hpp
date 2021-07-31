@@ -179,38 +179,41 @@ public:
     return true;
   }
 
+/// @brief BY AUTHOR
+//   bool finish() {
+//     active_ = false;
+//     size_t totalCount{0};
+//     auto lt = countMap_.lock_table();
+//     /// @brief kv是一個pair<TranscriptGroup, TGValue>
+// std::cerr << "how many weights " << lt.size() << std::endl;
+//     for (auto& kv : lt) {
+//       /// @brief normalizeAux()讓kv[:].TGValue.weights加總為1.0
+//       kv.second.normalizeAux();
+//       totalCount += kv.second.count;
+//       countVec_.push_back(kv);
+//     }
+
+//     logger_->info("Computed {:n} rich equivalence classes "
+//                   "for further processing",
+//                   countVec_.size());
+//     logger_->info("Counted {:n} total reads in the equivalence classes ",
+//                   totalCount);
+//     return true;
+//   }
+/// @brief BY AUTHOR END
+
   bool finish() {
-    active_ = false;
-    size_t totalCount{0};
-    auto lt = countMap_.lock_table();
-    /// @brief kv是一個pair<TranscriptGroup, TGValue>
-std::cerr << "how many weights " << lt.size() << std::endl;
-    for (auto& kv : lt) {
-      /// @brief normalizeAux()讓kv[:].TGValue.weights加總為1.0
-      kv.second.normalizeAux();
-      totalCount += kv.second.count;
-      countVec_.push_back(kv);
-    }
-
-    logger_->info("Computed {:n} rich equivalence classes "
-                  "for further processing",
-                  countVec_.size());
-    logger_->info("Counted {:n} total reads in the equivalence classes ",
-                  totalCount);
-    return true;
-  }
-
-  bool finish(uint32_t transcriptome_size, double add_nascent_threshold, uint32_t rangeFactorization) {
     active_ = false;
     size_t totalCount{0};
     size_t nascentCount{0};
     auto lt = countMap_.lock_table();
     /// @brief kv是一個pair<TranscriptGroup, TGValue>
 std::cerr << "how many weights " << lt.size() << std::endl;
-    for (auto& kv : lt) {
+    for (auto& kv : lt) 
+    {
         /// nascent unique equivalence class
         if(  kv.second.weightsSize() == (size_t)1 )
-            if (kv.first.txps[0] >= transcriptome_size)
+            if (kv.first.txps[0] >= transcriptome_size_no_nascent_)
                 nascentCount += kv.second.count;
 
       /// @brief normalizeAux()讓kv[:].TGValue.weights加總為1.0
@@ -219,14 +222,15 @@ std::cerr << "how many weights " << lt.size() << std::endl;
       countVec_.push_back(kv);
     }
 
-    if ( (double)nascentCount / (double)totalCount <= add_nascent_threshold )
+    nascent_percentage_ = (double)nascentCount / (double)totalCount;
+    if ( (double)nascentCount / (double)totalCount <= add_nascent_threshold_ )
     {
         for(auto& kv : countVec_)
         {
             /// nascent unique equivalence class
             if(  kv.second.weightsSize() == (size_t)1 )
             {
-                if (kv.first.txps[0] >= transcriptome_size)
+                if (kv.first.txps[0] >= transcriptome_size_no_nascent_)
                     kv.second.count = 0;
             }
             else
@@ -235,7 +239,7 @@ std::cerr << "how many weights " << lt.size() << std::endl;
                 for(size_t j(0); j<kv.second.weightsSize(); ++j)
                 {
                     std::cerr << kv.first.txps[j] << " ";
-                    if (kv.first.txps[j] >= transcriptome_size)
+                    if (kv.first.txps[j] >= transcriptome_size_no_nascent_)
                         std::cerr << "resetWeight: " << kv.second.resetWeight(j) << " ";
                 }
                 kv.second.normalizeAux();
@@ -300,11 +304,40 @@ std::cerr << "how many weights " << lt.size() << std::endl;
     return (active_) ? nonstd::nullopt : nonstd::optional<size_t>(countVec_.size());
   }
 
+public:
+    void set_transcriptome_size_no_nascent(uint32_t transcriptome_size_no_nascent)
+    {
+        transcriptome_size_no_nascent_ = transcriptome_size_no_nascent;
+    }
+
+    void set_add_nascent_threshold(double add_nascent_threshold)
+    {
+        add_nascent_threshold_ = add_nascent_threshold;
+    }
+
+    uint32_t get_transcriptome_size_no_nascent() const
+    {
+        return transcriptome_size_no_nascent_;
+    }
+
+    double get_add_nascent_threshold() const
+    {
+        return add_nascent_threshold_;
+    }
+
+    double get_nascent_percentage() const
+    {
+        return nascent_percentage_;
+    }
+
 private:
   std::atomic<bool> active_;
   libcuckoo::cuckoohash_map<TranscriptGroup, TGValueType, TranscriptGroupHasher> countMap_;
   std::vector<std::pair<const TranscriptGroup, TGValueType>> countVec_;
   std::shared_ptr<spdlog::logger> logger_;
+  uint32_t transcriptome_size_no_nascent_{0};
+  double add_nascent_threshold_{0.0};
+  double nascent_percentage_{0.0};
 };
 
 template <>

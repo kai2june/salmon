@@ -523,7 +523,11 @@ template <typename VecT, typename EQVecT>
 size_t markDegenerateClasses(
     EQVecT& eqVec,
     VecT& alphaIn, std::vector<bool>& available,
-    std::shared_ptr<spdlog::logger> jointLog, bool verbose = false) {
+    std::shared_ptr<spdlog::logger> jointLog,
+    size_t transcriptome_size_no_nascent,
+    double add_nascent_threshold,
+    double nascent_percentage,
+    bool verbose = false) {
 
   size_t numDropped{0};
 for (auto& kv : eqVec) {
@@ -542,8 +546,20 @@ for (size_t i = 0; i < groupSize; ++i) {
       if (!std::isnan(v)) {
         denom += v;
       } else {
-        std::cerr << "val is NAN; alpha( " << tid << " ) = " << alphaIn[tid]
+        if (tid < transcriptome_size_no_nascent)
+            std::cerr << "val is NAN; alpha( " << tid << " ) = " << alphaIn[tid]
                   << ", aux = " << aux << "\n";
+        else
+        {
+            if ( nascent_percentage < add_nascent_threshold)
+                std::cerr << "Nascent removed: nascent_percentage " << nascent_percentage 
+                          << " < add_nacent_threshold " << add_nascent_threshold
+                          << "; val is NAN; alpha( " << tid << " ) = " << alphaIn[tid]
+                    << ", aux = " << aux << "\n";
+            else
+                std::cerr << "val is NAN; alpha( " << tid << " ) = " << alphaIn[tid]
+                  << ", aux = " << aux << "\n";
+        }
       }
 }
     if (denom <= ::minEQClassWeight) {
@@ -817,7 +833,10 @@ bool CollapsedEMOptimizer::gatherBootstraps(
       transcripts, effLens, priorValue, perTranscriptPrior);
 
   auto numRemoved =
-      markDegenerateClasses(eqVec, alphas, available, sopt.jointLog);
+      markDegenerateClasses(eqVec, alphas, available, sopt.jointLog,
+                            eqBuilder.get_transcriptome_size_no_nascent(), 
+                            eqBuilder.get_add_nascent_threshold(),
+                            eqBuilder.get_nascent_percentage());
   sopt.jointLog->info("Marked {} weighted equivalence classes as degenerate",
                       numRemoved);
 
@@ -1106,6 +1125,7 @@ std::vector<double> multimappedFrac(transcripts.size(), 1.0);
   Eigen::VectorXd effLens(transcripts.size());
 
   /// @brief countVec_ (i.e., vector<pair<TranscriptGroup, TranscriptValue>>, i.e., equivalence class個數)
+  auto& eqBuilder = readExp.equivalenceClassBuilder();
   auto& eqVec =
       readExp.equivalenceClassBuilder().eqVec();
 // std::cerr << "(TranscriptGroup.size()) eqVec().size()=" << eqVec.size() << std::endl;
@@ -1141,7 +1161,10 @@ std::vector<double> multimappedFrac(transcripts.size(), 1.0);
 
   /// @brief abundance*aux太小(1e-308)的話, 丟掉這個eqv class
   auto numRemoved =
-      markDegenerateClasses(eqVec, alphas, available, sopt.jointLog);
+      markDegenerateClasses(eqVec, alphas, available, sopt.jointLog,
+                            eqBuilder.get_transcriptome_size_no_nascent(), 
+                            eqBuilder.get_add_nascent_threshold(),
+                            eqBuilder.get_nascent_percentage());
   sopt.jointLog->info("Marked {} weighted equivalence classes as degenerate",
                       numRemoved);
 
