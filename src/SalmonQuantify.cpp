@@ -303,6 +303,9 @@ void processMiniBatch(ReadExperimentT& readExp, ForgettingMassCalculator& fmCalc
 
         auto transcriptID = aln.transcriptID();
         auto& transcript = transcripts[transcriptID];
+
+transcript.addMultimappedCount(alnGroup.alignments().size());
+
         transcriptUnique =
             transcriptUnique and (transcriptID == firstTranscriptID);
 
