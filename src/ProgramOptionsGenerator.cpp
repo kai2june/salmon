@@ -35,6 +35,11 @@ namespace salmon {
        "while setting it to 1 says that alignments that disagree with the "
        "library type are no "
        "less likely than those that do")
+      ("transcriptome_size_no_nascent", po::value<uint32_t>(),
+       "Transcripts count in the transcriptome.")
+      ("add_nascent_threshold", po::value<double>(),
+       "If 'uniquely aligned nascent%' > 'add_nacent_threshold', then keep nascent in target;"
+       "otherwise, all nascent in eqv. class local weight = 0.")
       ("genome,c", po::value<string>(),
        "One FASTA file that contains all chromosomes.")
       ("gff3,3", po::value<string>(),

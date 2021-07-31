@@ -1267,13 +1267,6 @@ while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
     ++itNum;
 } /// @brief while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
 
-/// @brief normalized alphas
-double alphaDenom = 0.0;
-for (size_t i = 0; i < alphas.size(); ++i)
-    alphaDenom += alphas[i];
-for (size_t i=0; i<alphas.size(); ++i)
-    alphas[i] = alphas[i] / alphaDenom;
-
 /// @brief 測試normalized alphas是否合理, 因此多試一round VBEM
 // VBEMUpdate_(eqVec, priorAlphas, alphas,
 //             alphasPrime, expTheta);

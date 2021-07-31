@@ -2260,7 +2260,7 @@ void quantifyLibrary(ReadExperimentT& experiment,
     experiment.setNumObservedFragments(numObservedFragments);
 
     // EQCLASS
-    bool done = experiment.equivalenceClassBuilder().finish();
+    bool done = experiment.equivalenceClassBuilder().finish(experiment.get_transcriptome_size_no_nascent(), experiment.get_add_nascent_threshold(), salmonOpts.rangeFactorizationBins);
     // skip the extra online rounds
     terminate = true;
 
@@ -2435,6 +2435,38 @@ transcript abundance from RNA-seq reads
       fmt::print(stderr, "{}", commentString);
     }
 
+    uint32_t transcriptome_size_no_nascent;
+    double add_nascent_threshold;
+    if (vm.count("transcriptome_size_no_nascent")) 
+    {
+      transcriptome_size_no_nascent = vm["transcriptome_size_no_nascent"].as<uint32_t>();
+      if (transcriptome_size_no_nascent <= 0)
+      {
+        fmt::print(stderr, "transcriptome_size_no_nascent should be greater than 0.\n");
+        std::exit(1);
+      }
+    }
+    else
+    {
+      fmt::print(stderr, "transcriptome_size_no_nascent is required but not provided.\n");
+      std::exit(1);
+    }
+    if (vm.count("add_nascent_threshold"))
+    {
+        add_nascent_threshold = vm["add_nascent_threshold"].as<double>();
+        if (add_nascent_threshold < 0.0 or add_nascent_threshold > 1.0)
+        {
+          fmt::print(stderr, "add_nascent_threshold is a probability => range[0.0,1.0]\n");
+          std::exit(1);
+        }
+    }
+    else
+    {
+      fmt::print(stderr, "add_nascent_threshold is required but not provided.\n");
+      std::exit(1);
+    }
+
+
     sopt.quantMode = SalmonQuantMode::MAP;
     bool optionsOK =
         salmon::utils::processQuantOptions(sopt, vm, numBiasSamples);
@@ -2474,7 +2506,7 @@ transcript abundance from RNA-seq reads
     auto idxType = versionInfo.indexType();
 
     MappingStatistics mstats;
-    ReadExperimentT experiment(readLibraries, indexDirectory, sopt);
+    ReadExperimentT experiment(readLibraries, indexDirectory, sopt, transcriptome_size_no_nascent, add_nascent_threshold);
 
     // This will be the class in charge of maintaining our
     // rich equivalence classes

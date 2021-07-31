@@ -69,6 +69,13 @@ struct SCTGValue {
   // const is a lie
   void normalizeAux() const {}
 
+  size_t weightsSize() 
+  {
+      return 0;
+  }
+
+  double resetWeight(size_t idx) { return -1.0; }
+
   uint64_t count{0};
   SparseBarcodeMapType barcodeGroup;
 };
@@ -121,6 +128,17 @@ struct TGValue {
     for (size_t i = 0; i < weights.size(); ++i) {
       weights[i] *= norm;
     }
+  }
+
+  size_t weightsSize() 
+  {
+      return weights.size();
+  }
+
+  double resetWeight(size_t idx)
+  {
+      weights[idx] = 0.0;
+      return weights[idx];
   }
 
   mutable std::vector<double> weights;
@@ -177,6 +195,58 @@ std::cerr << "how many weights " << lt.size() << std::endl;
     logger_->info("Computed {:n} rich equivalence classes "
                   "for further processing",
                   countVec_.size());
+    logger_->info("Counted {:n} total reads in the equivalence classes ",
+                  totalCount);
+    return true;
+  }
+
+  bool finish(uint32_t transcriptome_size, double add_nascent_threshold, uint32_t rangeFactorization) {
+    active_ = false;
+    size_t totalCount{0};
+    size_t nascentCount{0};
+    auto lt = countMap_.lock_table();
+    /// @brief kv是一個pair<TranscriptGroup, TGValue>
+std::cerr << "how many weights " << lt.size() << std::endl;
+    for (auto& kv : lt) {
+        /// nascent unique equivalence class
+        if(  kv.second.weightsSize() == (size_t)1 )
+            if (kv.first.txps[0] >= transcriptome_size)
+                nascentCount += kv.second.count;
+
+      /// @brief normalizeAux()讓kv[:].TGValue.weights加總為1.0
+      kv.second.normalizeAux();
+      totalCount += kv.second.count;
+      countVec_.push_back(kv);
+    }
+
+    if ( (double)nascentCount / (double)totalCount <= add_nascent_threshold )
+    {
+        for(auto& kv : countVec_)
+        {
+            /// nascent unique equivalence class
+            if(  kv.second.weightsSize() == (size_t)1 )
+            {
+                if (kv.first.txps[0] >= transcriptome_size)
+                    kv.second.count = 0;
+            }
+            else
+            {
+                std::cerr << "weightsSize(): " << kv.second.weightsSize() << std::endl;
+                for(size_t j(0); j<kv.second.weightsSize(); ++j)
+                {
+                    std::cerr << kv.first.txps[j] << " ";
+                    if (kv.first.txps[j] >= transcriptome_size)
+                        std::cerr << "resetWeight: " << kv.second.resetWeight(j) << " ";
+                }
+                kv.second.normalizeAux();
+            }
+        }
+    }
+
+    logger_->info("Computed {:n} rich equivalence classes "
+                  "for further processing",
+                  countVec_.size());
+    logger_->info("nascentCount: {:n} ", nascentCount);
     logger_->info("Counted {:n} total reads in the equivalence classes ",
                   totalCount);
     return true;
