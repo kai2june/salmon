@@ -212,10 +212,20 @@ class GeneFileGenerator
 
         std::ofstream ofs_fasta(outputGeneTxpFastaFileName, std::ios::out);
         std::ifstream ifs_txp(txpFastaFileName);
-        while(std::getline(ifs_txp, line))
+        uint32_t line_width{70};
+        uint32_t polyA_count{125};
+        std::string prev_line;
+        std::getline(ifs_txp, prev_line);
+        while(prev_line.size() > 0 && std::getline(ifs_txp, line))
         {
-            ofs_fasta << line << "\n";
+            if (line[0] == '>')
+                writePolyAtail(ofs_fasta, prev_line, polyA_count, line_width);
+            else
+                ofs_fasta << prev_line << "\n";
+            prev_line = line;
         }
+        writePolyAtail(ofs_fasta, prev_line, polyA_count, line_width);
+
         for(const auto& elem : gene_info_)
         {
             ofs_fasta << ">" << elem.geneName;
@@ -231,7 +241,7 @@ class GeneFileGenerator
                 std::cerr << ">>>>>>>>>>>>Error: strand should be either '+' or '-', not '" << elem.strand << "'" << std::endl;
             for(int32_t i(0); i<s.size(); ++i)
             {
-                if(i%70==0)
+                if(i%line_width==0)
                     ofs_fasta << "\n";
                 ofs_fasta << s[i];
             }
@@ -239,6 +249,25 @@ class GeneFileGenerator
         }
         ofs_fasta.close();
         ifs_txp.close();
+    }
+
+    void writePolyAtail(std::ofstream& ofs_fasta, std::string prev_line, uint32_t polyA_count, uint32_t line_width)
+    {
+        polyA_count -= (line_width - prev_line.size());
+        while (prev_line.size() < line_width)
+            prev_line += "A";
+        ofs_fasta << prev_line << "\n";
+        prev_line.clear();
+        while (polyA_count-- > 0)
+        {
+            if (prev_line.size() == line_width)
+            {
+                ofs_fasta << prev_line << "\n";
+                prev_line.clear();
+            }
+            prev_line += "A";
+        }
+        ofs_fasta << prev_line << "\n";
     }
 
     void setTranscriptGeneMap(size_t txp_count, SAM_hdr* header)

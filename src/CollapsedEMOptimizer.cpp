@@ -352,24 +352,32 @@ if (tgroup.valid) {
 
             if (BOOST_LIKELY(groupSize > 1)) {
               double denom = 0.0;
+              double entropy = 0.0;
 for (size_t i = 0; i < groupSize; ++i) {
                 auto tid = txps[i];
 // if (tid == 11821) std::cerr << "groupSize:" << groupSize << std::endl;
 // if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
                 auto aux = auxs[i]*multimappedFrac[tid];
-                /// @brief aux是論文的{w^j_i}, 即combinedWeight
-                /// @brief v是equation11的分子(不含{d^j})
-                /// @brief v就是Estep算的東西
-                double v = (alphaIn[tid]) * aux;
-                /// @brief denom是論文equation11的分母
-                denom += v;
+                if (aux > 0.0)
+                {
+                    /// @brief aux是論文的{w^j_i}, 即combinedWeight
+                    /// @brief v是equation11的分子(不含{d^j})
+                    /// @brief v就是Estep算的東西
+                    double v = (alphaIn[tid]) * aux;
+                    /// @brief denom是論文equation11的分母
+                    denom += v;
+                    entropy += -aux*std::log(aux);
+                }
 }
-
+              if(entropy < 1.0)
+                entropy = 1.0;
               if (denom <= ::minEQClassWeight) {
                 // tgroup.setValid(false);
               } else {
                 /// @brief count就是{d^j}
-                double invDenom = count / denom;
+                // double invDenom = count / denom;
+                double invDenom = count / denom / entropy;
+
 for (size_t i = 0; i < groupSize; ++i) {
                   auto tid = txps[i];
                   auto aux = auxs[i]*multimappedFrac[tid];
@@ -469,20 +477,27 @@ void VBEMUpdate_(EQVecT& eqVec,
 
             if (BOOST_LIKELY(groupSize > 1)) {
               double denom = 0.0;
+              double entropy = 0.0;
               for (size_t i = 0; i < groupSize; ++i) {
                 auto tid = txps[i];
 // if (tid == 11821) std::cerr << "groupSize:" << groupSize << std::endl;
 // if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
                 auto aux = auxs[i]*multimappedFrac[tid];
-                if (expTheta[tid] > 0.0) {
+                if (expTheta[tid] > 0.0 and aux > 0.0) {
                   double v = expTheta[tid] * aux;
                   denom += v;
+                  entropy += -aux*std::log(aux);
                 }
               }
+
+              if(entropy < 1.0)
+                entropy = 1.0;
               if (denom <= ::minEQClassWeight) {
                 // tgroup.setValid(false);
               } else {
-                double invDenom = count / denom;
+                // double invDenom = count / denom;
+                double invDenom = count / denom / entropy;
+
                 for (size_t i = 0; i < groupSize; ++i) {
                   auto tid = txps[i];
                   auto aux = auxs[i]*multimappedFrac[tid];
