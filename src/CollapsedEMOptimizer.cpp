@@ -326,13 +326,14 @@ void EMUpdate_(EQVecT& eqVec,
                std::vector<double>& priorAlphas,
                const CollapsedEMOptimizer::VecType& alphaIn,
                CollapsedEMOptimizer::VecType& alphaOut,
-               std::vector<double>& multimappedFrac) {
+               std::vector<double>& multimappedFrac,
+               std::vector<size_t>& transcript_in_N_eqvclass) {
 
   assert(alphaIn.size() == alphaOut.size());
 
   tbb::parallel_for(
       BlockedIndexRange(size_t(0), size_t(eqVec.size())),
-      [&eqVec, &priorAlphas, &alphaIn, &alphaOut, &multimappedFrac](const BlockedIndexRange& range) -> void {
+      [&eqVec, &priorAlphas, &alphaIn, &alphaOut, &multimappedFrac, &transcript_in_N_eqvclass](const BlockedIndexRange& range) -> void {
         for (auto eqID : boost::irange(range.begin(), range.end())) {
           auto& kv = eqVec[eqID];
 
@@ -356,7 +357,7 @@ for (size_t i = 0; i < groupSize; ++i) {
                 auto tid = txps[i];
 // if (tid == 11821) std::cerr << "groupSize:" << groupSize << std::endl;
 // if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
-                auto aux = auxs[i];
+                auto aux = auxs[i] / transcript_in_N_eqvclass[tid];
                 /// @brief aux是論文的{w^j_i}, 即combinedWeight
                 /// @brief v是equation11的分子(不含{d^j})
                 /// @brief v就是Estep算的東西
@@ -372,7 +373,7 @@ for (size_t i = 0; i < groupSize; ++i) {
                 double invDenom = count / denom;
 for (size_t i = 0; i < groupSize; ++i) {
                   auto tid = txps[i];
-                  auto aux = auxs[i];
+                  auto aux = auxs[i] / transcript_in_N_eqvclass[tid];
                   double v = (alphaIn[tid]) * aux;
                   if (!std::isnan(v)) {
                     /// @brief Mstep更新alpha
@@ -416,7 +417,8 @@ void VBEMUpdate_(EQVecT& eqVec,
                  const CollapsedEMOptimizer::VecType& alphaIn,
                  CollapsedEMOptimizer::VecType& alphaOut,
                  CollapsedEMOptimizer::VecType& expTheta,
-                 std::vector<double>& multimappedFrac) {
+                 std::vector<double>& multimappedFrac,
+                 std::vector<size_t>& transcript_in_N_eqvclass) {
 
 /// @brief 公式: digamma(alpha_i*priorAlpha_i) / Sigma{digamma(alpha_i*priorAlpha_i)} 
   assert(alphaIn.size() == alphaOut.size());
@@ -451,7 +453,7 @@ void VBEMUpdate_(EQVecT& eqVec,
   tbb::parallel_for(
       BlockedIndexRange(size_t(0), size_t(eqVec.size())),
       [&eqVec, &alphaIn, &alphaOut,
-       &expTheta, &multimappedFrac](const BlockedIndexRange& range) -> void {
+       &expTheta, &multimappedFrac, &transcript_in_N_eqvclass](const BlockedIndexRange& range) -> void {
         for (auto eqID : boost::irange(range.begin(), range.end())) {
           auto& kv = eqVec[eqID];
 
@@ -473,7 +475,7 @@ void VBEMUpdate_(EQVecT& eqVec,
                 auto tid = txps[i];
 // if (tid == 11821) std::cerr << "groupSize:" << groupSize << std::endl;
 // if (tid == 11822) std::cerr << "groupSize:" << groupSize << std::endl;
-                auto aux = auxs[i];
+                auto aux = auxs[i] / transcript_in_N_eqvclass[tid];
                 if (expTheta[tid] > 0.0) {
                   double v = expTheta[tid] * aux;
                   denom += v;
@@ -485,7 +487,7 @@ void VBEMUpdate_(EQVecT& eqVec,
                 double invDenom = count / denom;
                 for (size_t i = 0; i < groupSize; ++i) {
                   auto tid = txps[i];
-                  auto aux = auxs[i];
+                  auto aux = auxs[i] / transcript_in_N_eqvclass[tid];
                   
                   if (expTheta[tid] > 0.0) {
                     double v = expTheta[tid] * aux;
@@ -1085,6 +1087,7 @@ std::vector<double> multimappedFrac(transcripts.size(), 1.0);
 //     else
 //         multimappedFrac[i] = (double)transcripts[i].totalCount() / (double)transcripts[i].multimappedCount();
 // } 
+
   std::vector<bool> available(transcripts.size(), false);
 
   // An EM termination criterion, adopted from Bray et al. 2016
@@ -1138,6 +1141,28 @@ std::vector<double> multimappedFrac(transcripts.size(), 1.0);
       transcripts, effLens, priorValue, perTranscriptPrior);
 
   computeCombinedWeights(eqVec, effLens, noRichEq, sopt);
+
+    for (auto& kv : eqVec)
+    {
+        const std::vector<uint32_t>& txps = kv.first.txps;
+        const auto& auxs = kv.second.combinedWeights;
+        for(size_t i=0; i<txps.size(); ++i)
+        {
+            auto tid = txps[i];
+            if ( auxs[i] <= (1.0 / (float)txps.size()) )
+                transcripts[tid].add_transcript_in_N_eqvclass(1);
+        }
+    }
+    for (size_t i(0); i<transcripts.size(); ++i)
+    {
+        std::cerr << "txp" << i << "_N_eqvclass " << transcripts[i].get_transcript_in_N_eqvclass() << std::endl;
+    }
+    std::vector<size_t> transcript_in_N_eqvclass(transcripts.size(), 1);
+    for (size_t i(0); i<transcripts.size(); ++i)
+    {
+        transcript_in_N_eqvclass[i] += transcripts[i].get_transcript_in_N_eqvclass();
+    }
+
 
   /// @brief abundance*aux太小(1e-308)的話, 丟掉這個eqv class
   auto numRemoved =
@@ -1199,7 +1224,7 @@ while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
 
     if (useVBEM) {
       VBEMUpdate_(eqVec, priorAlphas, alphas,
-                  alphasPrime, expTheta, multimappedFrac);
+                  alphasPrime, expTheta, multimappedFrac, transcript_in_N_eqvclass);
     } else {
       /*
       if (itNum > 0 and (itNum % 250 == 0)) {
@@ -1213,7 +1238,7 @@ while (itNum < minIter or (itNum < maxIter and !converged) or needBias) {
       /// @brief priorAlphas : 0.01
       /// @brief 上面修改alphas是一定比例projectedCount+一定比例uniqueCount
       /// @brief alphasPrime : 1.0
-      EMUpdate_(eqVec, priorAlphas, alphas, alphasPrime, multimappedFrac);
+      EMUpdate_(eqVec, priorAlphas, alphas, alphasPrime, multimappedFrac, transcript_in_N_eqvclass);
     }
 
     /// @brief 這個for是論文equation 12

@@ -140,10 +140,15 @@ public:
   }
 
   inline double sharedCount() { return sharedCount_.load(); }
+  inline size_t get_transcript_in_N_eqvclass() { return transcript_in_N_eqvclass_; }
   inline size_t multimappedCount() { return multimappedCount_.load(); }
   inline size_t uniqueCount() { return uniqueCount_.load(); }
   inline size_t totalCount() { return totalCount_.load(); }
 
+  inline void add_transcript_in_N_eqvclass(size_t newCount)
+  {
+      transcript_in_N_eqvclass_ += newCount;
+  }
   inline void addMultimappedCount(size_t newCount) { multimappedCount_ += newCount; }
   inline void addUniqueCount(size_t newCount) { uniqueCount_ += newCount; }
   inline void addTotalCount(size_t newCount) { totalCount_ += newCount; }
@@ -706,6 +711,7 @@ private:
                                                          [](const char*) {});
 
   /// @brief records count in all aligned alnGroup
+  size_t transcript_in_N_eqvclass_;
   std::atomic<size_t> multimappedCount_;
 
   std::atomic<size_t> uniqueCount_;
