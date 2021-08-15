@@ -711,7 +711,7 @@ private:
   std::atomic<size_t> uniqueCount_;
   std::atomic<size_t> totalCount_;
   double priorMass_;
-  std::atomic<double> mass_;
+  std::atomic<double> mass_; /// @brief mass_就是global abundance
   std::atomic<double> sharedCount_;
   std::atomic<double> cachedEffectiveLength_;
   std::atomic<double> avgMassBias_;
