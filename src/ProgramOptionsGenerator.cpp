@@ -38,11 +38,18 @@ namespace salmon {
       ("transcriptome_size_no_nascent", po::value<uint32_t>(),
        "Transcripts count in the transcriptome.")
       ("add_nascent_threshold", po::value<double>(),
+       "What proportion do nascent read account for at least."
        "If 'uniquely aligned nascent%' > 'add_nacent_threshold', then keep nascent in target;"
-       "otherwise, all nascent in eqv. class local weight = 0")
+       "otherwise, all nascent in eqv. class local weight = 0"
+       "add_nascent_threshold*intron_read_percentage_in_nascent_at_least = 1.0 -> DON'T add nascent"
+       "add_nascent_threshold*intron_read_percentage_in_nascent_at_least = 0.0 -> ALWAYS add nascent")
       ("intron_read_percentage_in_nascent_at_least", 
        po::value<double>(&(sopt.intron_read_percentage_in_nascent_at_least))->default_value(salmon::defaults::intron_read_percentage_in_nascent_at_least),
-       "Over intron_read_percentage_in_nascent_at_least of nascent read is intronic/exon-intron read.")
+       "What proportion of intron do nascent reads span."
+       "default: 0.6; Meaning that 60% nascent reads span intron."
+       "Over intron_read_percentage_in_nascent_at_least of nascent read is intronic/exon-intron read."
+       "add_nascent_threshold*intron_read_percentage_in_nascent_at_least = 1.0 -> DON'T add nascent"
+       "add_nascent_threshold*intron_read_percentage_in_nascent_at_least = 0.0 -> ALWAYS add nascent")
       ("genome,c", po::value<string>(),
        "One FASTA file that contains all chromosomes.")
       ("gff3,3", po::value<string>(),

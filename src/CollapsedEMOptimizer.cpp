@@ -567,7 +567,8 @@ for (size_t i = 0; i < groupSize; ++i) {
                   << ", aux = " << aux << "\n";
         else
         {
-            if ( nascent_percentage < add_nascent_threshold*intron_read_percentage_in_nascent_at_least)
+            if ( nascent_percentage <= add_nascent_threshold*intron_read_percentage_in_nascent_at_least &&
+                 nascent_percentage != 0.0)
                 std::cerr << "Nascent removed: intron/exon-intron reads " << nascent_percentage 
                           << " < expected(nascent%* intron_read_percentage_in_nascent_at_least) " << add_nascent_threshold*intron_read_percentage_in_nascent_at_least
                           << "; val is NAN; tid(" << tid << "), aux = " << aux << "\n";
